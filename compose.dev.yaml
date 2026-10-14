@@ -1,0 +1,15 @@
+# Development only; do not use in production.
+services:
+  db:
+    ports:
+      - "127.0.0.1:5432:5432"
+
+  backend:
+    # Replace the loopback-only base mapping to permit physical Android devices.
+    ports: !override
+      - "${BACKEND_PORT:-8000}:8000"
+    volumes:
+      - ./backend/app:/app/app
+    command: [uvicorn, app.main:app, --host, 0.0.0.0, --port, "8000", --reload]
+    environment:
+      APP_ENV: development
