@@ -1,20 +1,27 @@
-from fastapi import APIRouter
-from sqlalchemy import select
+from typing import Annotated
+
+from fastapi import APIRouter, Query
 
 from app.api.deps import CurrentUser, DbSession
-from app.models.cat_profile import CatProfile
-from app.schemas.chat import ChatRequest, ChatResponse
-from app.services.intervention_service import select_intervention
-from app.services.llm_service import personalize
-from app.services.risk_service import analyze_risk
+from app.core.config import get_settings
+from app.core.rate_limit import chat_limiter
+from app.schemas.chat import ChatHistoryResponse, ChatRequest, ChatResponse
+from app.services.chat_service import history, send_message
 
 router = APIRouter()
 
 
-@router.post("", response_model=ChatResponse)
-async def chat(payload: ChatRequest, db: DbSession, user: CurrentUser):
-    risk = analyze_risk(db, user.user_id)
-    intervention = select_intervention(db, risk)
-    cat = db.scalar(select(CatProfile).where(CatProfile.user_id == user.user_id))
-    db.close()  # Never retain a DB transaction during an external LLM call.
-    return await personalize(intervention, risk, cat.name, payload.output_channel)
+@router.post("/messages", response_model=ChatResponse)
+def post_message(payload: ChatRequest, db: DbSession, user: CurrentUser) -> dict:
+    chat_limiter.check(str(user.user_id), get_settings().chat_rate_limit_per_minute)
+    return send_message(db, user, payload.message, payload.conversation_id)
+
+
+@router.get("/history", response_model=ChatHistoryResponse)
+def get_history(
+    db: DbSession,
+    user: CurrentUser,
+    conversation_id: str | None = None,
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+) -> dict:
+    return history(db, user, conversation_id, limit)

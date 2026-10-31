@@ -1,65 +1,103 @@
 from concurrent.futures import ThreadPoolExecutor
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 import pytest
-from conftest import TestingSession
+from conftest import API, TestingSession
+from factories import START, add_behavior, make_user
 
 from app.core.exceptions import AppError
-from app.core.security import hash_password
-from app.models.behavior_record import BehaviorRecord
-from app.models.cat_profile import CatProfile
-from app.models.intervention import Intervention
+from app.core.security import create_access_token
 from app.models.mission import Mission
-from app.models.user import User
+from app.models.reward_transaction import RewardTransaction
+from app.seed.seed_interventions import seed_catalog
 from app.services.mission_service import active_assignments, complete_mission
 
 
-def _mission_data(db, steps=6000, reward=30):
-    user = User(email="mission@example.com", password_hash=hash_password("password-long"), isi_score=10)
-    db.add(user); db.flush(); db.add(CatProfile(user_id=user.user_id, name="Nabi"))
-    intervention = Intervention(category="PHYSICAL_ACTIVITY", rule="LOW_DAILY_ACTIVITY", title="Move", message_template="Move gently", active=True)
-    db.add(intervention); db.flush()
-    mission = Mission(intervention_id=intervention.intervention_id, title="Walk", description="Walk", verification_type="STEPS", target_value=5000, reward_exp=reward, active=True)
-    db.add(mission); db.commit()
-    assignment = active_assignments(db, user.user_id)[0]
-    if steps is not None:
-        db.add(BehaviorRecord(user_id=user.user_id, record_date=datetime.now(UTC).date(), screen_time=10, nighttime_screen_time=2, steps=steps, app_usage={"source": "android"})); db.commit()
+def _caffeine_user(db, reward=None):
+    """User whose recent logs show late caffeine, so the engine assigns the caffeine mission."""
+    seed_catalog(db)
+    if reward is not None:
+        db.query(Mission).filter_by(verification_type="NO_LATE_CAFFEINE").update({"reward_exp": reward})
+        db.commit()
+    user = make_user(db)
+    for index in range(7):
+        add_behavior(db, user, START + timedelta(days=index), caffeine_after_cutoff=True)
+    db.commit()
+    assignment = active_assignments(db, user)[0]
     return user, assignment
 
 
-def test_mission_assignment(db):
-    _, assignment = _mission_data(db, None)
-    assert assignment.status == "ASSIGNED"
-    assert assignment.verification_snapshot["integrity_limit"]
+def _log_today(db, user, **fields):
+    today = datetime.now(UTC).astimezone(ZoneInfo(user.timezone)).date()
+    add_behavior(db, user, today, **fields)
+    db.commit()
 
 
-def test_incomplete_mission_rejected(db):
-    user, assignment = _mission_data(db, 100)
-    with pytest.raises(AppError) as exc: complete_mission(db, user.user_id, assignment.assignment_id)
-    assert exc.value.status_code == 409
+def test_active_mission_comes_from_recommendation(db):
+    user, assignment = _caffeine_user(db)
+    assert assignment["category"] == "SLEEP_HYGIENE"
+    assert assignment["verification_type"] == "NO_LATE_CAFFEINE"
+    # Calling again returns the same active assignment instead of creating a new one.
+    again = active_assignments(db, user)
+    assert [a["assignment_id"] for a in again] == [assignment["assignment_id"]]
 
 
-def test_success_and_duplicate_idempotency(db):
-    user, assignment = _mission_data(db)
-    first = complete_mission(db, user.user_id, assignment.assignment_id)
-    second = complete_mission(db, user.user_id, assignment.assignment_id)
-    assert first["reward_exp"] == 30
+def test_not_verified_is_409(db):
+    user, assignment = _caffeine_user(db)
+    _log_today(db, user, caffeine_after_cutoff=True)
+    with pytest.raises(AppError) as exc:
+        complete_mission(db, user, assignment["mission_id"])
+    assert exc.value.status_code == 409 and exc.value.code == "MISSION_NOT_VERIFIED"
+    assert db.query(RewardTransaction).count() == 0
+
+
+def test_unknown_mission_is_404(db):
+    user, _ = _caffeine_user(db)
+    with pytest.raises(AppError) as exc:
+        complete_mission(db, user, 99999)
+    assert exc.value.status_code == 404
+
+
+def test_success_idempotent_and_reward(db):
+    user, assignment = _caffeine_user(db)
+    _log_today(db, user, caffeine_after_cutoff=False)
+    first = complete_mission(db, user, assignment["mission_id"])
+    second = complete_mission(db, user, assignment["mission_id"])
+    assert first["reward_exp"] == 20 and first["verified"]
     assert second["idempotent"] is True and second["reward_exp"] == 0
+    assert db.query(RewardTransaction).count() == 1
 
 
 def test_cat_level_up(db):
-    user, assignment = _mission_data(db, reward=250)
-    result = complete_mission(db, user.user_id, assignment.assignment_id)
+    user, assignment = _caffeine_user(db, reward=250)
+    _log_today(db, user, caffeine_after_cutoff=False)
+    result = complete_mission(db, user, assignment["mission_id"])
     assert (result["cat_level"], result["cat_exp"]) == (2, 150)
 
 
 def test_concurrent_completion_pays_once(db):
-    user, assignment = _mission_data(db)
+    user, assignment = _caffeine_user(db)
+    _log_today(db, user, caffeine_after_cutoff=False)
 
     def complete_once():
         with TestingSession() as session:
-            return complete_mission(session, user.user_id, assignment.assignment_id)
+            return complete_mission(session, session.merge(user), assignment["mission_id"])
 
     with ThreadPoolExecutor(max_workers=2) as executor:
         results = list(executor.map(lambda _: complete_once(), range(2)))
-    assert sorted(result["reward_exp"] for result in results) == [0, 30]
+    assert sorted(result["reward_exp"] for result in results) == [0, 20]
+
+
+def test_mission_api_and_cat_reaction(client, db):
+    user, assignment = _caffeine_user(db)
+    headers = {"Authorization": f"Bearer {create_access_token(user.user_id)}"}
+    active = client.get(f"{API}/missions/active", headers=headers).json()
+    assert active[0]["mission_id"] == assignment["mission_id"]
+    _log_today(db, user, caffeine_after_cutoff=False)
+    body = client.post(f"{API}/missions/{assignment['mission_id']}/complete", headers=headers).json()
+    assert body["verified"] and body["cat_action"] == "HAPPY" and body["message"]
+    cat = client.get(f"{API}/cat/state", headers=headers).json()
+    assert cat["cat_action"] == "HAPPY" and cat["exp"] == 20
+    report = client.get(f"{API}/reports/weekly", headers=headers).json()
+    assert report["missions"] == {"completed": 1, "exp_earned": 20}

@@ -27,11 +27,15 @@ services:
     environment:
       DB_HOST: db
       DB_PORT: "5432"
+      LLM_SERVER_URL: http://llm-server:8100
     ports:
       - "127.0.0.1:${BACKEND_PORT:-8000}:8000"
     depends_on:
       db:
         condition: service_healthy
+      # Not "healthy": the backend answers with safe fallback replies while the LLM server is down.
+      llm-server:
+        condition: service_started
     networks: [nabi_internal]
     restart: unless-stopped
     init: true
@@ -40,8 +44,51 @@ services:
     security_opt: [no-new-privileges:true]
     cap_drop: [ALL]
 
+  # Internal-only LLM API (spec §5.1). Not published to the host; only the backend calls it.
+  llm-server:
+    build:
+      context: ./llm-server
+      dockerfile: Dockerfile
+    image: nabi-llm-server:local
+    env_file: [.env]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8100/internal/v1/llm/health', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks: [nabi_internal]
+    restart: unless-stopped
+    init: true
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+
+  # Optional self-hosted Qwen2.5-7B-Instruct (needs an NVIDIA GPU with ~16 GB+ VRAM).
+  # Start with: docker compose --profile gpu up -d vllm
+  # Then set LLM_PROVIDER=openai_compatible and LLM_INFERENCE_URL=http://vllm:8000/v1
+  vllm:
+    profiles: [gpu]
+    image: vllm/vllm-openai:v0.6.3
+    command: ["--model", "${LLM_MODEL:-Qwen/Qwen2.5-7B-Instruct}", "--max-model-len", "8192"]
+    environment:
+      HUGGING_FACE_HUB_TOKEN: ${HF_TOKEN:-}
+    volumes:
+      - hf_cache:/root/.cache/huggingface
+    ipc: host
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    networks: [nabi_internal]
+    restart: unless-stopped
+
 volumes:
   postgres_data:
+  hf_cache:
 
 networks:
   nabi_internal:
