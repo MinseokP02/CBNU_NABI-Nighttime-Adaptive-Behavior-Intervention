@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Debug only: the dev backend runs plain HTTP on the PC (emulator 10.0.2.2, adb reverse 127.0.0.1, or a LAN IP). -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>
