@@ -4,7 +4,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /*
- * Response models for the NABI backend (backend/app/schemas/*.py).
+ * Response models for the NABI backend (the .py files in backend/app/schemas).
  * Parsed with the built-in org.json so the app needs no extra libraries.
  */
 
