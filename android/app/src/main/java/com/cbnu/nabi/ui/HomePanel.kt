@@ -5,7 +5,6 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.os.Handler
 import android.os.Looper
-import android.text.TextUtils
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -17,7 +16,6 @@ import android.widget.TextView
 import android.widget.Toast
 import com.cbnu.nabi.R
 import com.cbnu.nabi.data.CatAction
-import com.cbnu.nabi.data.Labels
 import com.cbnu.nabi.data.Mission
 import com.cbnu.nabi.data.UserState
 import com.cbnu.nabi.pet.PetService
@@ -125,7 +123,7 @@ class HomePanel(private val activity: MainActivity) {
         val titles = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
         val titleRow = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         titleRow.addView(activity.label("나비의 공간", 24f, title = true))
-        titleRow.addView(activity.icon(R.drawable.ic_paw, Color.parseColor("#9B604D"), 19).apply {
+        titleRow.addView(activity.icon(R.drawable.ic_cat_face, Color.parseColor("#9B604D"), 20).apply {
             (layoutParams as LinearLayout.LayoutParams).leftMargin = activity.dp(6)
         })
         titles.addView(titleRow)
@@ -193,8 +191,9 @@ class HomePanel(private val activity: MainActivity) {
             orientation = LinearLayout.VERTICAL
             background = activity.cardBg(Color.argb(240, 255, 249, 243), 20, Color.argb(178, 185, 155, 137))
             elevation = activity.dp(4).toFloat()
-            setOnClickListener { onAnalysisTapped() }
-            contentDescription = "나의 수면 분석. 눌러서 수면 일지 보기"
+            // Card body → 나의 수면 분석 sheet. "기록하기" has its own listener, so it never triggers this.
+            contentDescription = "나의 수면 분석. 눌러서 자세히 보기"
+            setOnClickListener { openAnalysis() }
         }
         val title = LinearLayout(activity).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -224,50 +223,20 @@ class HomePanel(private val activity: MainActivity) {
     }
 
     /**
-     * FR-04-02/04: loading, error, collecting (baseline not ready) and ready are shown differently.
-     * New users never get a made-up result (NFR-04).
+     * The card always uses the Figma summary layout: total sleep on the left, efficiency and
+     * satisfaction on the right. It shows today's diary entry, otherwise the most recent one (with
+     * its date), and "기록 없음" when there is none yet. Nothing is made up (NFR-04).
      */
     private fun showAnalysis(state: UserState?, error: String?) {
         analysisBody.removeAllViews()
-        val today = todayEntry()
-        if (today != null) { showSummary(today, state); analysisError = false; return }
-        val row = LinearLayout(activity).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(activity.dp(14), 0, activity.dp(14), 0)
-        }
-        val iconBox = FrameLayout(activity).apply {
-            background = activity.rounded(Palette.lavenderSoft, 14)
-            addView(activity.icon(R.drawable.ic_moon, Color.parseColor("#8F78B5"), 25),
-                FrameLayout.LayoutParams(activity.dp(25), activity.dp(25), Gravity.CENTER))
-        }
-        row.addView(iconBox, LinearLayout.LayoutParams(activity.dp(40), activity.dp(40)))
-        val texts = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
-        val (headline, detail) = when {
-            error != null -> "분석 정보를 불러오지 못했어요" to "$error · 눌러서 다시 시도"
-            state == null -> "불러오는 중…" to "잠시만 기다려 주세요."
-            state.baselineStatus != "ready" ->
-                "데이터 수집 중" to "기록을 남기면 수면 요약을 확인할 수 있어요.\n유효 기록 ${state.baselineValidDays}일"
-            else -> "수면 상태: ${Labels.sleep(state.sleepState)}" to
-                "위험도 ${Labels.risk(state.riskLevel)} · 생활 습관 ${Labels.behavior(state.behaviorState)}"
-        }
-        texts.addView(activity.label(headline, 15f, bold = true))
-        texts.addView(activity.label(detail, 11f, Palette.muted).apply {
-            setPadding(0, activity.dp(5), 0, 0)
-            setLineSpacing(activity.dp(2).toFloat(), 1f)
-            maxLines = 3; ellipsize = TextUtils.TruncateAt.END
-        })
-        row.addView(texts, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { leftMargin = activity.dp(10) })
-        row.addView(activity.icon(R.drawable.ic_chevron_right, Palette.muted, 18))
-        analysisBody.addView(row, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         analysisError = error != null
+        showSummary(latestEntry(), state)
     }
 
-    private fun todayEntry(): DiaryEntry? =
-        SleepDiaryStore(activity, activity.prefs.email).get(LocalDate.now())
+    private fun latestEntry(): DiaryEntry? =
+        SleepDiaryStore(activity, activity.prefs.email).all().filter { !it.date.isAfter(LocalDate.now()) }.maxByOrNull { it.date }
 
-    /** Figma summary once today's diary exists: total sleep on the left, efficiency + satisfaction on the right. */
-    private fun showSummary(e: DiaryEntry, state: UserState?) {
+    private fun showSummary(e: DiaryEntry?, state: UserState?) {
         // Both columns start on the same top line, so "총 수면시간" sits level with "수면 효율".
         val row = LinearLayout(activity).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -283,13 +252,15 @@ class HomePanel(private val activity: MainActivity) {
         head.addView(activity.label("총 수면시간", 11f, Palette.muted, bold = true),
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { leftMargin = activity.dp(5) })
         left.addView(head)
-        left.addView(activity.label(formatDuration(e.totalSleepMin), 21f, title = true).apply { setPadding(0, activity.dp(5), 0, 0) })
-        // FR-04-02: the personal baseline is still being built — say so next to the numbers.
-        if (state != null && state.baselineStatus != "ready") {
-            left.addView(activity.label("기준선 수집 중 · 유효 ${state.baselineValidDays}일", 9.5f, Palette.muted).apply {
-                setPadding(0, activity.dp(5), 0, 0)
-            })
+        left.addView(if (e != null) activity.label(formatDuration(e.totalSleepMin), 21f, title = true).apply { setPadding(0, activity.dp(5), 0, 0) }
+            else activity.label("기록 없음", 15f, Palette.muted, bold = true).apply { setPadding(0, activity.dp(8), 0, 0) })
+        // One small line: the record's date when it isn't today's, otherwise the baseline status (FR-04-02).
+        val sub = when {
+            e != null && e.date != LocalDate.now() -> "${e.date.monthValue}월 ${e.date.dayOfMonth}일 기록"
+            state != null && state.baselineStatus != "ready" -> "기준선 수집 중 · 유효 ${state.baselineValidDays}일"
+            else -> null
         }
+        if (sub != null) left.addView(activity.label(sub, 9.5f, Palette.muted).apply { setPadding(0, activity.dp(5), 0, 0) })
         row.addView(left, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 0.48f))
         row.addView(View(activity).apply { setBackgroundColor(Color.argb(51, 185, 155, 137)) },
             LinearLayout.LayoutParams(activity.dp(1), activity.dp(58)))
@@ -297,8 +268,8 @@ class HomePanel(private val activity: MainActivity) {
             orientation = LinearLayout.VERTICAL
             setPadding(activity.dp(14), 0, activity.dp(14), 0)
         }
-        right.addView(metric("수면 효율", "${e.efficiencyPct}%"))
-        right.addView(metric("수면 만족도", SleepRecordSheet.SATISFACTIONS[e.satisfaction - 1]),
+        right.addView(metric("수면 효율", e?.let { "${it.efficiencyPct}%" } ?: "—"))
+        right.addView(metric("수면 만족도", e?.let { SleepRecordSheet.SATISFACTIONS[it.satisfaction - 1] } ?: "—"),
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = activity.dp(10) })
         row.addView(right, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 0.52f))
         analysisBody.addView(row, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
@@ -311,9 +282,22 @@ class HomePanel(private val activity: MainActivity) {
         addView(activity.label(value, 14f, bold = true))
     }
 
-    /** Tapping the analysis card opens the 수면 일지 tab (user decision); on an error it retries instead. */
-    private fun onAnalysisTapped() {
-        if (analysisError) refresh() else activity.showDiary()
+    // ---------------- 나의 수면 분석 detail (bottom sheet over home; tabs stay) ----------------
+    private var analysis: SleepAnalysisPanel? = null
+
+    fun openAnalysis() {
+        if (analysis != null || decorator != null) return
+        val p = SleepAnalysisPanel(activity,
+            onOpenDiary = { closeAnalysis(); activity.showDiaryFromAnalysis() },
+            onClosed = { analysis = null })
+        p.render(lastState)
+        analysis = p
+        p.show()
+    }
+
+    fun closeAnalysis() {
+        analysis?.dismiss()
+        analysis = null
     }
 
     // ---------------- missions (FR-06-01, existing feature) ----------------
@@ -468,6 +452,7 @@ class HomePanel(private val activity: MainActivity) {
     /** Opened from 상점 › 내 아이템 › 방 꾸미기. Hides everything but the room while arranging. */
     fun enterDecorate() {
         if (decorator != null) return
+        closeAnalysis()
         if (root.width == 0) { root.post { enterDecorate() }; return }
         top.visibility = View.GONE
         fab.visibility = View.GONE
@@ -608,6 +593,7 @@ class HomePanel(private val activity: MainActivity) {
                 lastState = state
                 activity.prefs.catName = state.catName
                 showAnalysis(state, null)
+                analysis?.render(state)
                 missions = list
                 missionText.text = if (list.isEmpty()) "미션" else "미션 ${list.size}"
                 missionSheet?.let { renderMissions(it.body) }

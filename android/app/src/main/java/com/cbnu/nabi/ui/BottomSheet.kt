@@ -28,7 +28,8 @@ class BottomSheet(private val activity: Activity, title: String, subtitle: Strin
     /** Put the sheet content here. */
     val body: Column = Column(activity, 10)
     private val footer = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
-    private val scroll = ScrollView(activity).apply { addView(body.root) }
+    // No scrollbar: it drew over the cards' right edge. Drag-scrolling still works as before.
+    private val scroll = ScrollView(activity).apply { addView(body.root); isVerticalScrollBarEnabled = false }
     private val sheet = DragSheet()
 
     /** The sheet's window, e.g. to blur it behind a modal on top. */
@@ -72,7 +73,8 @@ class BottomSheet(private val activity: Activity, title: String, subtitle: Strin
         }
         // blur the app behind the sheet while it is open
         dialog.setOnShowListener { Blur.push(activity.window.decorView) }
-        dialog.setOnDismissListener { Blur.pop(activity.window.decorView) }
+        dialog.setOnDismissListener { Blur.pop(activity.window.decorView); onDismiss?.invoke() }
+        dialog.setCanceledOnTouchOutside(true)
     }
 
     /** A view pinned under the scrolling body (e.g. the "기록 저장" button). */
@@ -96,6 +98,12 @@ class BottomSheet(private val activity: Activity, title: String, subtitle: Strin
     }
 
     fun dismiss() = dialog.dismiss()
+
+    /** Start at the top of the content (e.g. right after [show]). */
+    fun scrollToTop() = scroll.post { scroll.scrollTo(0, 0) }
+
+    /** Called after the sheet closes (drag, outside tap, back or [dismiss]). */
+    var onDismiss: (() -> Unit)? = null
 
     companion object {
         const val MAX_WIDTH_DP = 560

@@ -143,6 +143,17 @@ class MainActivity : Activity() {
     }
 
     /** Show the 수면 일지 tab (phone). On a tablet it is already visible on the left. */
+    /** Open the "나의 수면 분석" sheet (home card or the diary's 자세히 분석하기). */
+    fun openAnalysis() {
+        homePanel?.openAnalysis()
+    }
+
+    /** From the analysis sheet's 수면 일지 보기: if the diary is already showing, just stay there. */
+    fun showDiaryFromAnalysis() {
+        if (tabButtons.isNotEmpty() && currentTab == Tab.SLEEP) return
+        showDiary()
+    }
+
     fun showDiary() {
         sleepPanel?.showToday()
         if (tabButtons.isNotEmpty()) selectTab(Tab.SLEEP)
@@ -156,7 +167,6 @@ class MainActivity : Activity() {
     /** Home loaded the user state; refresh what the profile and the diary show. */
     fun onUserStateLoaded(state: com.cbnu.nabi.data.UserState) {
         profilePanel?.update()
-        sleepPanel?.setState(state)
     }
 
     private fun onLoggedIn() {

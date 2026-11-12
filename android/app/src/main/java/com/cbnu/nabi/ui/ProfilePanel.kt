@@ -405,7 +405,19 @@ class ProfilePanel(private val activity: MainActivity, private val onLogout: () 
     private fun buildNotifications(col: Column) {
         subHeader(col, "알림 설정", "나비가 전하는 수면 및 활동 안내를 설정해요.")
         val s = store
-        val status = activity.label("알림 기능은 준비 중이에요. 설정은 이 기기에 저장돼요.", 11f, Palette.muted).apply { gravity = Gravity.CENTER }
+        // A fixed note, and in the same spot a small pill that pops up after each toggle and fades
+        // away (like the "나비를 터치해 보세요" hint on home).
+        val note = activity.label("알림 기능은 준비 중이에요. 설정은 이 기기에 저장돼요.", 11f, Palette.muted).apply { gravity = Gravity.CENTER }
+        val toast = activity.label("", 11f, Palette.lavenderDeep, bold = true).apply {
+            setPadding(activity.dp(12), activity.dp(6), activity.dp(12), activity.dp(6))
+            background = activity.cardBg(Color.argb(240, 255, 250, 246), 999, Color.parseColor("#D9C9E6"))
+            alpha = 0f
+        }
+        val status = FrameLayout(activity).apply {
+            addView(note, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER))
+            addView(toast, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER))
+            minimumHeight = activity.dp(30)
+        }
 
         val granted = Build.VERSION.SDK_INT < 33 ||
             activity.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
@@ -428,14 +440,23 @@ class ProfilePanel(private val activity: MainActivity, private val onLogout: () 
             })
         }
 
-        val saved: (Boolean) -> Unit = { ok -> status.text = if (ok) "설정이 저장되었어요." else "설정을 저장하지 못했어요." }
+        val saved: (Boolean) -> Unit = { ok ->
+            toast.text = if (ok) "설정이 저장되었어요" else "설정을 저장하지 못했어요"
+            toast.animate().cancel(); note.animate().cancel()
+            note.animate().alpha(0f).setDuration(150).start()
+            toast.animate().alpha(1f).setStartDelay(0).setDuration(180).withEndAction {
+                toast.animate().alpha(0f).setStartDelay(1400).setDuration(300).withEndAction {
+                    note.animate().alpha(1f).setDuration(200).start()
+                }.start()
+            }.start()
+        }
         val rows = listOf(
             Triple(ProfileStore.N_SLEEP_PREP, "취침 준비 안내" to "목표 취침 시각에 맞춰 수면 준비를 안내해요.", R.drawable.ic_moon),
             Triple(ProfileStore.N_DIARY, "수면 일지 작성 알림" to "기상 후 작성하지 않은 수면 일지를 안내해요.", R.drawable.ic_book),
             Triple(ProfileStore.N_MISSION, "활동 및 미션 안내" to "활동이 부족할 때 스트레칭이나 산책을 안내해요.", R.drawable.ic_target),
         )
         val subToggles = mutableListOf<ToggleSwitch>()
-        val subCard = card()
+        val subCard = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
         fun applyMaster(on: Boolean) {
             subCard.alpha = if (on) 1f else 0.5f
             subToggles.forEach { it.isEnabled = on }
@@ -447,7 +468,7 @@ class ProfilePanel(private val activity: MainActivity, private val onLogout: () 
         masterCard.addView(settingRow(null, "알림 받기", "모든 NABI 알림 사용 여부를 설정해요.", master).apply { setPadding(0, 0, 0, 0) })
         col.add(masterCard)
 
-        subCard.addView(activity.label("수면 및 활동 알림", 17f, title = true))
+        subCard.addView(activity.label("수면 및 활동 알림", 16f, title = true).apply { setPadding(activity.dp(4), activity.dp(6), 0, 0) })
         val rowViews = rows.map { (key, texts, icon) ->
             val t = ToggleSwitch(activity, s.notif(key)) { on -> val ok = store.setNotif(key, on); saved(ok); ok }
             subToggles += t

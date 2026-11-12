@@ -8,8 +8,6 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import com.cbnu.nabi.R
-import com.cbnu.nabi.data.Labels
-import com.cbnu.nabi.data.UserState
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.YearMonth
@@ -24,42 +22,46 @@ import java.time.YearMonth
  */
 class SleepDiaryPanel(private val activity: MainActivity) {
 
+    private companion object {
+        /** Mid lavender: soft but still clearly readable on the cream page. */
+        val LINK: Int = Color.parseColor("#8467A8")
+    }
+
     private val store = SleepDiaryStore(activity, activity.prefs.email)
     private var entries: Map<LocalDate, DiaryEntry> = emptyMap()
     private var month: YearMonth = YearMonth.now()
     private var selected: LocalDate = LocalDate.now()
-    private var state: UserState? = null
 
-    private val factorsBox = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
     private val calendarBox = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
-    private val chartBox = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
     private val detailBox = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
 
     val view: View
 
     init {
         val page = activity.page()
-        val header = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        header.addView(activity.label("나의 수면 일지", 26f, title = true), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        // "+ 기록하기": light-lavender long pill, opens today's record sheet.
-        header.addView(LinearLayout(activity).apply {
+        // Row 1: title + "+ 기록하기" (vertically centred on the title).
+        val titleRow = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        titleRow.addView(activity.label("나의 수면 일지", 26f, title = true), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        titleRow.addView(LinearLayout(activity).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
-            setPadding(activity.dp(14), 0, activity.dp(16), 0)
+            setPadding(activity.dp(11), 0, activity.dp(13), 0)
             background = activity.cardBg(Palette.lavenderSoft, 999, Color.parseColor("#DCCDEB"))
-            addView(activity.icon(R.drawable.ic_plus, Color.parseColor("#71568D"), 16))
-            addView(activity.label("기록하기", 13f, Color.parseColor("#71568D"), bold = true),
+            addView(activity.icon(R.drawable.ic_plus, Color.parseColor("#71568D"), 14))
+            addView(activity.label("기록하기", 12.5f, Color.parseColor("#71568D"), bold = true),
                 LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { leftMargin = activity.dp(5) })
             contentDescription = "오늘 수면 기록하기"
             setOnClickListener { activity.openSleepRecord() }
-        // MATCH_PARENT in a wrap-content row = exactly the title's height, so the pill and the
-        // "나의 수면 일지" text share the same top and bottom.
-        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT))
-        page.add(header)
-        page.add(activity.label("하루하루 쌓이는 나의 수면 기록", 12f, Palette.muted).apply { setPadding(0, 0, 0, activity.dp(4)) })
-        page.add(factorsBox)
+        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, activity.dp(30)))
+        page.add(titleRow)
+
+        // Row 2: subtitle (a little closer to the title) + "수면 분석 보기 ›", right edges aligned with row 1.
+        val subRow = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        subRow.addView(activity.label("하루하루 쌓이는 나의 수면 기록", 12f, Palette.muted), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        subRow.addView(analysisLink())
+        val sub = page.add(subRow)
+        (sub.layoutParams as LinearLayout.LayoutParams).topMargin = activity.dp(2)
         page.add(calendarBox)
-        page.add(chartBox)
         page.add(detailBox)
         view = activity.scrollPage(page)
         refresh()
@@ -68,9 +70,7 @@ class SleepDiaryPanel(private val activity: MainActivity) {
     /** Re-read the local diary (after saving a record, on resume) and redraw. */
     fun refresh() {
         entries = store.all().associateBy { it.date }
-        renderFactors()
         renderCalendar()
-        renderChart()
         renderDetail()
     }
 
@@ -82,10 +82,21 @@ class SleepDiaryPanel(private val activity: MainActivity) {
         (view as? android.widget.ScrollView)?.scrollTo(0, 0)
     }
 
-    /** The home screen loaded GET /users/me/state. */
-    fun setState(s: UserState) {
-        state = s
-        renderFactors()
+    /**
+     * "수면 분석 보기 ›" → the 나의 수면 분석 sheet. A plain text link with a small chart icon
+     * (no background or border); the padding gives it a comfortable touch area.
+     */
+    private fun analysisLink() = LinearLayout(activity).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        setPadding(activity.dp(12), activity.dp(10), activity.dp(2), activity.dp(10))
+        addView(activity.icon(R.drawable.ic_chart, LINK, 13),
+            LinearLayout.LayoutParams(activity.dp(13), activity.dp(13)).apply { rightMargin = activity.dp(5) })
+        addView(activity.label("수면 분석 보기", 12f, LINK, bold = true))
+        addView(activity.icon(R.drawable.ic_chevron_right, LINK, 14),
+            LinearLayout.LayoutParams(activity.dp(14), activity.dp(14)).apply { leftMargin = activity.dp(2) })
+        contentDescription = "수면 분석 보기"
+        setOnClickListener { activity.openAnalysis() }
     }
 
     // ---------------- shared bits ----------------
@@ -114,117 +125,6 @@ class SleepDiaryPanel(private val activity: MainActivity) {
         addView(activity.label(text, 11f, Color.parseColor("#71568D"), bold = true),
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { leftMargin = activity.dp(4) })
         setOnClickListener { onClick() }
-    }
-
-    private fun badge(text: String) = activity.label(text, 10f, Color.parseColor("#71568D"), bold = true).apply {
-        setPadding(activity.dp(9), activity.dp(5), activity.dp(9), activity.dp(5))
-        background = activity.rounded(Palette.lavenderSoft, 10)
-    }
-
-    // ---------------- 살펴볼 점 (risk factors, FR-04-02/03, NFR-04) ----------------
-    /**
-     * Only server-provided state is shown — nothing is made up:
-     * - no state yet → waiting
-     * - baseline not "ready" (collecting or unknown) → collecting, with progress by VALID record days
-     * - ready + factors → factor tags
-     * - ready + analysis ran (sleep_state known) + no factors → "no notable change"
-     * - ready but recent nights too few to analyze (sleep_state UNKNOWN) → waiting
-     */
-    private fun renderFactors() {
-        factorsBox.removeAllViews()
-        val c = card()
-        c.addView(titleRow(R.drawable.ic_info, "살펴볼 점"))
-        val s = state
-        when {
-            s == null -> c.addView(note("분석 결과를 기다리고 있어요."))
-            s.baselineStatus != "ready" -> renderCollecting(c, s.baselineValidDays)
-            s.riskFactors.isNotEmpty() -> {
-                val chips = FlowRow()
-                s.riskFactors.forEach { chips.addView(badge(factorLabel(it))) }
-                c.addView(chips, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-                    .apply { topMargin = activity.dp(10) })
-                c.addView(note("평소(개인 기준선)와 비교한 결과예요. 의료 진단이 아니에요.", 10f))
-            }
-            s.sleepState != "UNKNOWN" -> c.addView(note("최근 수면 패턴에서 눈에 띄는 변화가 없어요."))
-            else -> c.addView(note("최근 기록이 더 쌓이면 평소 수면 패턴과 비교해 알려드릴게요."))
-        }
-        factorsBox.addView(c)
-    }
-
-    private fun note(text: String, size: Float = 12f) = activity.label(text, size, Palette.muted).apply {
-        setPadding(0, activity.dp(8), 0, 0); setLineSpacing(activity.dp(2).toFloat(), 1f)
-    }
-
-    /** Baseline still being built: no tags, explain + a small progress bar of valid record days. */
-    private fun renderCollecting(c: LinearLayout, validDays: Int) {
-        c.addView(activity.label("나의 수면 패턴을 알아가는 중이에요.", 13.5f, bold = true).apply { setPadding(0, activity.dp(10), 0, 0) })
-        c.addView(activity.label("개인 기준선 수집 중 · 유효 기록 ${validDays}일", 11.5f, Color.parseColor("#71568D"), bold = true)
-            .apply { setPadding(0, activity.dp(6), 0, 0) })
-
-        // Progress counts VALID records (server baseline_valid_days), not days since sign-up.
-        val row = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        val track = FrameLayout(activity).apply { background = activity.rounded(Palette.lavenderSoft, 999) }
-        val fill = View(activity).apply { background = activity.rounded(Palette.lavender, 999) }
-        val ratio = (validDays.toFloat() / BASELINE_REQUIRED_VALID_DAYS).coerceIn(0f, 1f)
-        track.addView(fill, FrameLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT))
-        track.post { fill.layoutParams = fill.layoutParams.apply { width = (track.width * ratio).toInt() } }
-        row.addView(track, LinearLayout.LayoutParams(0, activity.dp(7), 1f))
-        row.addView(activity.label("${validDays.coerceAtMost(BASELINE_REQUIRED_VALID_DAYS)} / ${BASELINE_REQUIRED_VALID_DAYS}일", 10.5f, Palette.muted, bold = true),
-            LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { leftMargin = activity.dp(8) })
-        row.contentDescription = "유효 기록 ${validDays}일, 기준선에 필요한 ${BASELINE_REQUIRED_VALID_DAYS}일 중"
-        c.addView(row, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-            .apply { topMargin = activity.dp(10) })
-
-        c.addView(note("기록이 충분히 쌓이면 평소 수면 패턴과 비교해 알려드릴게요.", 11f))
-    }
-
-    /**
-     * Metric-based wording for the backend risk codes (services/risk_service.py rules).
-     * Unknown codes fall back to the shared labels rather than inventing a meaning.
-     */
-    private fun factorLabel(code: String): String = when (code) {
-        "PROLONGED_SLEEP_ONSET" -> "잠들기까지 걸린 시간 증가"
-        "FREQUENT_NIGHT_AWAKENING" -> "밤중 깨어 있던 시간 증가"
-        "LOW_SLEEP_EFFICIENCY" -> "수면 효율 감소"
-        "SHORT_SLEEP_DURATION" -> "총 수면시간 감소"
-        "IRREGULAR_BEDTIME" -> "취침 시각 변동 증가"
-        "IRREGULAR_WAKE_TIME" -> "기상 시각 변동 증가"
-        "POOR_SLEEP_QUALITY" -> "수면 만족도 점수 낮음"
-        "LATE_CAFFEINE" -> "늦은 시간 카페인 섭취 잦음"
-        "EXCESSIVE_PRE_BED_SCREEN" -> "취침 전 화면 사용 시간 김"
-        "LONG_DAYTIME_NAP" -> "낮잠 시간 김"
-        "HIGH_STRESS" -> "스트레스 점수 높음"
-        "LOW_PHYSICAL_ACTIVITY" -> "운동 시간 부족"
-        else -> Labels.factor(code)
-    }
-
-    /** Wraps chips onto new lines. */
-    private inner class FlowRow : ViewGroup(activity) {
-        private val gap = activity.dp(6)
-        override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-            val maxW = MeasureSpec.getSize(widthMeasureSpec)
-            var x = 0; var y = 0; var rowH = 0
-            for (i in 0 until childCount) {
-                val ch = getChildAt(i)
-                measureChild(ch, widthMeasureSpec, heightMeasureSpec)
-                if (x > 0 && x + ch.measuredWidth > maxW) { x = 0; y += rowH + gap; rowH = 0 }
-                x += ch.measuredWidth + gap
-                rowH = maxOf(rowH, ch.measuredHeight)
-            }
-            setMeasuredDimension(maxW, y + rowH)
-        }
-
-        override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
-            val maxW = r - l
-            var x = 0; var y = 0; var rowH = 0
-            for (i in 0 until childCount) {
-                val ch = getChildAt(i)
-                if (x > 0 && x + ch.measuredWidth > maxW) { x = 0; y += rowH + gap; rowH = 0 }
-                ch.layout(x, y, x + ch.measuredWidth, y + ch.measuredHeight)
-                x += ch.measuredWidth + gap
-                rowH = maxOf(rowH, ch.measuredHeight)
-            }
-        }
     }
 
     // ---------------- calendar ----------------
@@ -283,7 +183,8 @@ class SleepDiaryPanel(private val activity: MainActivity) {
             c.addView(row)
         }
 
-        val legend = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; setPadding(0, activity.dp(8), 0, 0) }
+        // Sits right under the last week row (that row already has its own breathing room).
+        val legend = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; setPadding(0, activity.dp(2), 0, 0) }
         legend.addView(View(activity).apply { background = activity.rounded(Palette.lavender, 3) }, LinearLayout.LayoutParams(activity.dp(6), activity.dp(6)))
         legend.addView(activity.label("수면 기록 있음", 10f, Palette.muted),
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { leftMargin = activity.dp(5) })
@@ -304,52 +205,6 @@ class SleepDiaryPanel(private val activity: MainActivity) {
         selected = month.atDay(1)
         renderCalendar()
         renderDetail()
-    }
-
-    // ---------------- last 7 days ----------------
-    private fun renderChart() {
-        chartBox.removeAllViews()
-        val today = LocalDate.now()
-        val days = (6 downTo 0).map { today.minusDays(it.toLong()) }
-        val minutes = days.map { entries[it]?.totalSleepMin }
-        val values = minutes.filterNotNull()
-        val avg = if (values.isEmpty()) null else values.sum() / values.size
-
-        val c = card()
-        c.addView(titleRow(R.drawable.ic_chart, "최근 7일 수면시간", badge(if (avg == null) "기록 없음" else "평균 ${formatDuration(avg)}")))
-        val bars = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, activity.dp(12), 0, 0) }
-        val trackH = activity.dp(84)
-        days.forEachIndexed { i, d ->
-            val col = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL }
-            val m = minutes[i]
-            val valueText = when {
-                m == null -> "—\n "
-                m / 60 == 0 -> "\n${m % 60}분"
-                else -> "${m / 60}시간\n${m % 60}분"
-            }
-            col.addView(activity.label(valueText, 8.5f, Palette.muted).apply {
-                gravity = Gravity.CENTER; maxLines = 2
-            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-            val track = FrameLayout(activity)
-            track.addView(View(activity).apply { setBackgroundColor(Color.parseColor("#EADDD3")) },
-                FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, activity.dp(1), Gravity.BOTTOM))
-            if (m != null) {
-                val h = (trackH * (m / 600f).coerceIn(0.08f, 1f)).toInt()
-                track.addView(View(activity).apply {
-                    background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
-                        intArrayOf(Color.parseColor("#C9B5E6"), Color.parseColor("#A991CF"))).apply {
-                        val r = activity.dp(8).toFloat(); cornerRadii = floatArrayOf(r, r, r, r, 0f, 0f, 0f, 0f)
-                    }
-                }, FrameLayout.LayoutParams(activity.dp(26), h, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL))
-            }
-            col.addView(track, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, trackH).apply { topMargin = activity.dp(4) })
-            col.addView(activity.label(listOf("월", "화", "수", "목", "금", "토", "일")[d.dayOfWeek.value - 1], 11f,
-                bold = true).apply { gravity = Gravity.CENTER; setPadding(0, activity.dp(6), 0, 0) },
-                LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-            bars.addView(col, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        }
-        c.addView(bars)
-        chartBox.addView(c)
     }
 
     /** After picking a date, scroll so the selected day's card (empty + 기록하기, or detail + 수정) is visible. */
@@ -447,12 +302,4 @@ class SleepDiaryPanel(private val activity: MainActivity) {
         layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, activity.dp(1)).apply { topMargin = activity.dp(10) }
     }
 
-    companion object {
-        /**
-         * Valid record days the server needs for a baseline. Mirrors the backend default
-         * (core/config.py baseline_min_valid_days = 10). TODO: read `required_valid_days` from
-         * GET /analysis/baseline once the app has that API call (API teammate).
-         */
-        const val BASELINE_REQUIRED_VALID_DAYS = 10
-    }
 }
