@@ -57,7 +57,6 @@ class HomePanel(private val activity: MainActivity) {
     private var missions: List<Mission> = emptyList()
     private var missionSheet: BottomSheet? = null
 
-    private var checkedVisit = -1
     private val clock = Handler(Looper.getMainLooper())
     private val tick = object : Runnable {
         override fun run() { updateScene(); clock.postDelayed(this, 60_000) }
@@ -378,25 +377,11 @@ class HomePanel(private val activity: MainActivity) {
         floor.post { roomCat.onFloorResized() }
     }
 
-    /** Show or remove the room cat depending on [CatPresence]. */
+    /** Show or remove the room cat depending on [CatPresence]. It only comes in when called. */
     private fun updateCat() {
         if (!root.isAttachedToWindow) return
-        // FR-05-07: on opening the app, a roaming overlay cat that stands on the floor becomes the room cat.
-        if (checkedVisit != CatPresence.visit && PetService.isRunning && !CatPresence.inRoom) {
-            checkedVisit = CatPresence.visit
-            if (overlayIsOnFloor()) { CatPresence.enterRoom(); return }
-        }
-        checkedVisit = CatPresence.visit
         if (CatPresence.showInRoom) roomCat.show() else roomCat.hide()
-        hint.text = if (CatPresence.showInRoom) "나비를 터치해 보세요" else "오른쪽 아래 버튼으로 나비를 불러 보세요"
-    }
-
-    private fun overlayIsOnFloor(): Boolean {
-        val b = PetService.catBounds ?: return false
-        val loc = IntArray(2)
-        floor.getLocationOnScreen(loc)
-        if (floor.width == 0) return false
-        return b.centerX() in loc[0]..(loc[0] + floor.width) && b.bottom in loc[1]..(loc[1] + floor.height)
+        hint.text = if (CatPresence.showInRoom) "나비를 터치해 보세요" else "나비는 지금 밖에서 놀고 있어요 · 불러 보세요"
     }
 
     /** Bottom-right "나비 부르기" button (user decision): calls the overlay cat in, or the room cat over. */

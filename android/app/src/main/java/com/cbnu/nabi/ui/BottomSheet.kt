@@ -21,7 +21,6 @@ import kotlin.math.abs
 /**
  * Figma-style bottom sheet: slides up from the bottom with a handle, a title and a scrolling body.
  * Drag it down (from the handle, or anywhere while the content is scrolled to the top) to close it.
- * While it is open the overlay cat stays hidden ([CatPresence]).
  */
 class BottomSheet(private val activity: Activity, title: String, subtitle: String? = null) {
 
@@ -70,8 +69,6 @@ class BottomSheet(private val activity: Activity, title: String, subtitle: Strin
             addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
             setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         }
-        dialog.setOnShowListener { CatPresence.sheetOpened() }
-        dialog.setOnDismissListener { CatPresence.sheetClosed() }
     }
 
     /** A view pinned under the scrolling body (e.g. the "기록 저장" button). */

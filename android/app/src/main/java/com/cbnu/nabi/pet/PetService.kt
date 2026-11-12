@@ -11,7 +11,6 @@ import android.content.pm.ServiceInfo
 import android.content.res.Configuration
 import android.graphics.PixelFormat
 import android.graphics.Point
-import android.graphics.Rect
 import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Handler
@@ -94,14 +93,6 @@ class PetService : Service(), PetHost {
 
         @Volatile
         private var instance: PetService? = null
-
-        /**
-         * Where the cat's body is on screen (touch box, screen px), or null when the overlay is off.
-         * The NABI app uses it to tell whether the cat is standing on the room floor when the app opens.
-         */
-        @Volatile
-        var catBounds: Rect? = null
-            private set
 
         /**
          * Hide or show the overlay cat while the NABI app is open — e.g. when the cat has walked into
@@ -190,7 +181,6 @@ class PetService : Service(), PetHost {
     override fun onDestroy() {
         isRunning = false
         if (instance === this) instance = null
-        catBounds = null
         main.removeCallbacksAndMessages(null)
         io.shutdownNow()
         cat?.let { runCatching { wm.removeView(it) } }
@@ -279,7 +269,6 @@ class PetService : Service(), PetHost {
             dispLp.x = dispX; dispLp.y = dispY
             runCatching { wm.updateViewLayout(c, dispLp) }
         }
-        catBounds = Rect(tx, ty, tx + tw, ty + th)
         if (touchLp.x != tx || touchLp.y != ty || touchLp.width != tw || touchLp.height != th) {
             touchLp.x = tx; touchLp.y = ty; touchLp.width = tw; touchLp.height = th
             runCatching { wm.updateViewLayout(tv, touchLp) }
