@@ -48,7 +48,11 @@ class SleepRecordSheet(
 
     private val sheet = BottomSheet(
         activity,
-        if (existing != null) "수면 기록 수정" else "오늘의 수면 기록",
+        when {
+            existing != null -> "수면 기록 수정"
+            date == LocalDate.now() -> "오늘의 수면 기록"
+            else -> "${date.monthValue}월 ${date.dayOfMonth}일 수면 기록"
+        },
         "어젯밤의 수면과 생활 습관을 기록해요.",
     )
     private lateinit var bedBtn: TextView

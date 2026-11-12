@@ -77,6 +77,7 @@ class MainActivity : Activity() {
             return
         }
         profilePanel?.update()
+        sleepPanel?.refresh()
         homePanel?.refresh()
     }
 
@@ -103,10 +104,11 @@ class MainActivity : Activity() {
 
     /** Home loaded the user state (cat name etc.); refresh what the profile shows. */
     /** "기록하기" on the home analysis card: the sleep record sheet (FR-03). */
-    fun openSleepRecord() {
-        SleepRecordSheet(this) {
+    fun openSleepRecord(date: java.time.LocalDate = java.time.LocalDate.now()) {
+        SleepRecordSheet(this, date) {
             Toast.makeText(this, "수면 기록을 저장했어요", Toast.LENGTH_SHORT).show()
             homePanel?.refresh()
+            sleepPanel?.refresh()
         }.show()
     }
 
@@ -120,8 +122,9 @@ class MainActivity : Activity() {
         homePanel?.onOverlayChanged()
     }
 
-    fun onUserStateLoaded() {
+    fun onUserStateLoaded(state: com.cbnu.nabi.data.UserState) {
         profilePanel?.update()
+        sleepPanel?.setState(state)
     }
 
     private fun onLoggedIn() {

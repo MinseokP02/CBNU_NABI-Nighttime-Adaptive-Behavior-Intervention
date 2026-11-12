@@ -426,7 +426,7 @@ class HomePanel(private val activity: MainActivity) {
                 missions = list
                 missionText.text = if (list.isEmpty()) "미션" else "미션 ${list.size}"
                 missionSheet?.let { renderMissions(it.body) }
-                activity.onUserStateLoaded()
+                activity.onUserStateLoaded(state)
             }.onFailure {
                 showAnalysis(lastState, it.friendly())
                 if (!activity.prefs.loggedIn) activity.showLogin() // token expired (401)
