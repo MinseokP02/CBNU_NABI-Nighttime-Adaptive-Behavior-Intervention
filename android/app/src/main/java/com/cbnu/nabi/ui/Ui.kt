@@ -1,15 +1,19 @@
 package com.cbnu.nabi.ui
 
 import android.app.Activity
+import android.content.Context
+import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import com.cbnu.nabi.R
 import com.cbnu.nabi.data.ApiException
 import java.util.concurrent.Executors
 
@@ -30,13 +34,48 @@ fun Throwable.friendly(): String =
 
 fun Activity.dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
 
+/** Colors. The first group are the Figma design tokens (index.css :root) — use these for new UI (NFR-05). */
 object Palette {
+    val page = Color.parseColor("#F8EEE6")
+    val sand = Color.parseColor("#F7EBDD")
+    val card = Color.parseColor("#FFFAF5")
+    val ink = Color.parseColor("#4A3027")
+    val muted = Color.parseColor("#75645B")
+    val coral = Color.parseColor("#E99680")
+    val lavender = Color.parseColor("#A991CF")
+    val lavenderSoft = Color.parseColor("#EEE5F5")
+    val lavenderDeep = Color.parseColor("#654C76")
+    val line = Color.parseColor("#D9C3B4")
+
     val cat = Color.parseColor("#E8964A")
     val cream = Color.parseColor("#F8E6C8")
-    val ink = Color.parseColor("#2B2840")
     val danger = Color.parseColor("#D9362B")
-    val card = Color.argb(28, 232, 150, 74)
-    val divider = Color.argb(48, 128, 128, 128)
+    val divider = line
+}
+
+/** Figma fonts: Jua for titles, Gowun Dodum for body text (also the theme default). */
+object Fonts {
+    private var titleFace: Typeface? = null
+    private var bodyFace: Typeface? = null
+
+    fun title(c: Context): Typeface = titleFace ?: c.resources.getFont(R.font.jua).also { titleFace = it }
+    fun body(c: Context): Typeface = bodyFace ?: c.resources.getFont(R.font.gowun_dodum).also { bodyFace = it }
+}
+
+/** Rounded card background with the Figma hairline border. */
+fun Activity.cardBg(
+    fill: Int = Palette.card,
+    radiusDp: Int = 18,
+    stroke: Int? = Palette.line,
+): GradientDrawable = rounded(fill, radiusDp).apply {
+    if (stroke != null) setStroke(dp(1), stroke)
+}
+
+/** A tinted vector icon from res/drawable/ic_*.xml (generated from the Figma icons). */
+fun Activity.icon(res: Int, color: Int, sizeDp: Int = 24): ImageView = ImageView(this).apply {
+    setImageResource(res)
+    imageTintList = ColorStateList.valueOf(color)
+    layoutParams = LinearLayout.LayoutParams(dp(sizeDp), dp(sizeDp))
 }
 
 /** Remove a view from its current parent so it can be placed in a new layout (FR-01-04). */
@@ -68,12 +107,16 @@ class Column(private val activity: Activity, gapDp: Int = 10) {
     }
 
     fun heading(text: String) = add(TextView(activity).apply {
-        this.text = text; textSize = 18f; setTypeface(typeface, Typeface.BOLD)
+        this.text = text; textSize = 20f
+        typeface = Fonts.title(activity)
+        setTextColor(Palette.ink)
         setPadding(0, activity.dp(12), 0, 0)
     })
 
     fun text(text: String = "", size: Float = 14f, alpha: Float = 1f) = add(TextView(activity).apply {
         this.text = text; textSize = size; this.alpha = alpha
+        typeface = Fonts.body(activity)
+        setTextColor(Palette.ink)
     })
 
     /** A row of equal-width buttons. */

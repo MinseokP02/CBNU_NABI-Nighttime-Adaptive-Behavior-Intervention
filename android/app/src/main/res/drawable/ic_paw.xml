@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generated from the Figma Make Icon 'paw' (24x24, stroke 1.8). Tinted in code. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="24" android:viewportHeight="24">
+    <path android:pathData="M7,15.5 a5,4.4 0 1,0 10,0 a5,4.4 0 1,0 -10,0 Z"
+        android:fillColor="#FF000000" />
+    <path android:pathData="M3.5,10.5 a2,2.7 0 1,0 4,0 a2,2.7 0 1,0 -4,0 Z"
+        android:fillColor="#FF000000" />
+    <path android:pathData="M8,6.8 a2,2.7 0 1,0 4,0 a2,2.7 0 1,0 -4,0 Z"
+        android:fillColor="#FF000000" />
+    <path android:pathData="M12.8,6.8 a2,2.7 0 1,0 4,0 a2,2.7 0 1,0 -4,0 Z"
+        android:fillColor="#FF000000" />
+    <path android:pathData="M17,10.5 a2,2.7 0 1,0 4,0 a2,2.7 0 1,0 -4,0 Z"
+        android:fillColor="#FF000000" />
+</vector>

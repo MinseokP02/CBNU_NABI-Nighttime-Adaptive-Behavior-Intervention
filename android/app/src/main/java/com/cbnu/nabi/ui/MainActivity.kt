@@ -5,14 +5,18 @@ import android.app.Activity
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
 import android.content.res.Configuration
+import android.graphics.Color
 import android.graphics.Typeface
 import android.os.Build
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import com.cbnu.nabi.R
 import com.cbnu.nabi.data.ApiClient
 import com.cbnu.nabi.data.Prefs
 
@@ -32,7 +36,11 @@ class MainActivity : Activity() {
     lateinit var api: ApiClient
         private set
 
-    private enum class Tab(val label: String) { SLEEP("수면일지"), HOME("홈"), PROFILE("내 정보") }
+    private enum class Tab(val label: String, val icon: Int) {
+        SLEEP("수면 일지", R.drawable.ic_book),
+        HOME("홈", R.drawable.ic_home),
+        PROFILE("마이페이지", R.drawable.ic_user),
+    }
 
     private var loginPanel: LoginPanel? = null
     private var sleepPanel: SleepDiaryPanel? = null
@@ -41,8 +49,7 @@ class MainActivity : Activity() {
 
     private var currentTab = Tab.HOME
     private val tabPanes = mutableMapOf<Tab, View>()
-    private val tabButtons = mutableMapOf<Tab, TextView>()
-    private var tabDefaultColors: ColorStateList? = null
+    private val tabButtons = mutableMapOf<Tab, LinearLayout>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -126,9 +133,16 @@ class MainActivity : Activity() {
         tabPanes[Tab.SLEEP] = sleep.view
         tabPanes[Tab.HOME] = home.view
         tabPanes[Tab.PROFILE] = profile.view
-        tabPanes.values.forEach { it.detach(); it.visibility = View.VISIBLE }
+        val tablet = isTablet()
+        tabPanes.values.forEach {
+            it.detach()
+            it.visibility = View.VISIBLE
+            // Phone: leave room so the floating tab bar never covers the end of a page.
+            it.setPadding(0, 0, 0, if (tablet) 0 else dp(NAV_HEIGHT_DP + NAV_BOTTOM_DP + 12))
+            (it as? ViewGroup)?.clipToPadding = false
+        }
 
-        return if (isTablet()) buildThreePane() else buildTabs()
+        return if (tablet) buildThreePane() else buildTabs()
     }
 
     /** FR-01-03: provisional split rule — device's shortest side >= 600dp. Confirm on real devices. */
@@ -143,35 +157,45 @@ class MainActivity : Activity() {
         return row
     }
 
+    /** Phone: pages fill the screen and the Figma floating tab bar sits on top near the bottom. */
     private fun buildTabs(): View {
-        val content = FrameLayout(this)
+        val root = FrameLayout(this)
         for (tab in Tab.values()) {
-            content.addView(tabPanes.getValue(tab), FrameLayout.LayoutParams(
+            root.addView(tabPanes.getValue(tab), FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT
             ))
         }
 
-        val bar = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        val bar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(dp(7), dp(5), dp(7), dp(5))
+            background = cardBg(Color.argb(230, 255, 250, 246), 27, Color.argb(199, 185, 155, 137))
+            elevation = dp(6).toFloat()
+        }
         tabButtons.clear()
         for (tab in Tab.values()) {
-            val btn = TextView(this).apply {
+            val label = TextView(this).apply {
                 text = tab.label
-                textSize = 14f
+                textSize = 11f
                 gravity = Gravity.CENTER
-                minHeight = dp(56)
+                typeface = Typeface.create(Fonts.body(this@MainActivity), Typeface.BOLD)
+            }
+            val item = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER
+                addView(icon(tab.icon, NAV_TEXT, 22))
+                addView(label)
+                contentDescription = tab.label
                 setOnClickListener { selectTab(tab) }
             }
-            if (tabDefaultColors == null) tabDefaultColors = btn.textColors
-            tabButtons[tab] = btn
-            bar.addView(btn, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+            tabButtons[tab] = item
+            bar.addView(item, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f))
         }
+        root.addView(bar, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, dp(NAV_HEIGHT_DP)).apply {
+            gravity = Gravity.BOTTOM
+            setMargins(dp(16), 0, dp(16), dp(NAV_BOTTOM_DP))
+        })
 
-        val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        root.addView(content, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
-        root.addView(divider(), LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(1)))
-        root.addView(bar, LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
-        ))
         selectTab(currentTab)
         return root
     }
@@ -179,10 +203,12 @@ class MainActivity : Activity() {
     private fun selectTab(tab: Tab) {
         currentTab = tab
         for ((t, pane) in tabPanes) pane.visibility = if (t == tab) View.VISIBLE else View.GONE
-        for ((t, btn) in tabButtons) {
+        for ((t, item) in tabButtons) {
             val selected = t == tab
-            if (selected) btn.setTextColor(Palette.cat) else btn.setTextColor(tabDefaultColors)
-            btn.setTypeface(null, if (selected) Typeface.BOLD else Typeface.NORMAL)
+            item.background = if (selected) rounded(Color.argb(240, 234, 224, 244), 22) else null
+            (item.getChildAt(0) as ImageView).imageTintList =
+                ColorStateList.valueOf(if (selected) Palette.lavenderDeep else NAV_TEXT)
+            (item.getChildAt(1) as TextView).setTextColor(if (selected) Palette.ink else NAV_TEXT)
         }
     }
 
@@ -191,5 +217,8 @@ class MainActivity : Activity() {
     companion object {
         private const val KEY_TAB = "tab"
         private const val TABLET_MIN_DP = 600
+        private const val NAV_HEIGHT_DP = 64
+        private const val NAV_BOTTOM_DP = 9
+        private val NAV_TEXT = Color.parseColor("#6F5D54")
     }
 }

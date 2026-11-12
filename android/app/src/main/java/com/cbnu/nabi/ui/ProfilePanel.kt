@@ -28,7 +28,7 @@ class ProfilePanel(private val activity: MainActivity, private val onLogout: () 
 
     init {
         val page = activity.page()
-        page.heading("내 정보")
+        page.heading("마이페이지")
         emailText = page.text("", 15f)
         catNameText = page.text("", 15f)
 

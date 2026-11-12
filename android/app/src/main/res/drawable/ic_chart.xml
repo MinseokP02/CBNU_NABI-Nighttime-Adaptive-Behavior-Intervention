@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generated from the Figma Make Icon 'chart' (24x24, stroke 1.8). Tinted in code. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="24" android:viewportHeight="24">
+    <path android:pathData="M4,13 h1.5 a1,1 0 0,1 1,1 v5 a1,1 0 0,1 -1,1 h-1.5 a1,1 0 0,1 -1,-1 v-5 a1,1 0 0,1 1,-1 Z"
+        android:fillColor="#FF000000" />
+    <path android:pathData="M10,9 h1.5 a1,1 0 0,1 1,1 v9 a1,1 0 0,1 -1,1 h-1.5 a1,1 0 0,1 -1,-1 v-9 a1,1 0 0,1 1,-1 Z"
+        android:fillColor="#FF000000" />
+    <path android:pathData="M16,4 h1.5 a1,1 0 0,1 1,1 v14 a1,1 0 0,1 -1,1 h-1.5 a1,1 0 0,1 -1,-1 v-14 a1,1 0 0,1 1,-1 Z"
+        android:fillColor="#FF000000" />
+</vector>
