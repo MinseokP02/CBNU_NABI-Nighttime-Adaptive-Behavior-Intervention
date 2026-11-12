@@ -91,6 +91,14 @@ class MainActivity : Activity() {
         render()
     }
 
+    /** Back from a 마이페이지 sub-page returns to its main page before leaving the app. */
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() {
+        if (profilePanel?.handleBack() == true) return
+        @Suppress("DEPRECATION")
+        super.onBackPressed()
+    }
+
     // ---------------- called by panels ----------------
 
     /** Go back to the login screen and drop the logged-in panels so the next user starts clean. */
@@ -102,7 +110,6 @@ class MainActivity : Activity() {
         render()
     }
 
-    /** Home loaded the user state (cat name etc.); refresh what the profile shows. */
     /** "기록하기" on the home analysis card: the sleep record sheet (FR-03). */
     fun openSleepRecord(date: java.time.LocalDate = java.time.LocalDate.now()) {
         SleepRecordSheet(this, date) {
@@ -122,6 +129,7 @@ class MainActivity : Activity() {
         homePanel?.onOverlayChanged()
     }
 
+    /** Home loaded the user state; refresh what the profile and the diary show. */
     fun onUserStateLoaded(state: com.cbnu.nabi.data.UserState) {
         profilePanel?.update()
         sleepPanel?.setState(state)
@@ -161,12 +169,11 @@ class MainActivity : Activity() {
         tabPanes.values.forEach {
             it.detach()
             it.visibility = View.VISIBLE
-            // Phone: leave room so the floating tab bar never covers the end of a page.
-            // Phone: scrolling pages leave room so the floating tab bar never covers their end.
+            // Phone: pages leave room so the floating tab bar never covers their end.
             // The home room draws edge to edge behind the bar on purpose (Figma).
-            if (it is ScrollView) {
+            if (it !== home.view) {
                 it.setPadding(0, 0, 0, if (tablet) 0 else dp(NAV_HEIGHT_DP + NAV_BOTTOM_DP + 12))
-                it.clipToPadding = false
+                (it as? ViewGroup)?.clipToPadding = false
             }
         }
 

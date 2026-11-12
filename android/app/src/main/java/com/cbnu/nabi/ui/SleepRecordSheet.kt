@@ -267,105 +267,13 @@ class SleepRecordSheet(
         wakeBtn.text = wakeTime?.let(::format12) ?: "시간 선택"
     }
 
-    /** Figma TimePicker: 오전/오후 · 시 · 분 wheels in a rounded dialog. */
     private fun pickTime(isBed: Boolean) {
         val initial = (if (isBed) bedtime else wakeTime) ?: if (isBed) LocalTime.of(23, 0) else LocalTime.of(7, 0)
-        val dialog = Dialog(activity)
-        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
-        val box = LinearLayout(activity).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(activity.dp(20), activity.dp(22), activity.dp(20), activity.dp(18))
-            background = activity.cardBg(Palette.card, 24, Color.parseColor("#DDC9BB"))
-        }
-        val preview = activity.label("", 15f, Palette.lavenderDeep, bold = true)
-        val head = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        head.addView(activity.label(if (isBed) "취침 시각 수정" else "기상 시각 수정", 18f, title = true),
-            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        head.addView(preview)
-        box.addView(head)
-
-        val period = wheel(0, 1) { if (it == 0) "오전" else "오후" }.apply { value = if (initial.hour >= 12) 1 else 0 }
-        val hour = wheel(1, 12) { it.toString() }.apply { value = (initial.hour % 12).let { if (it == 0) 12 else it } }
-        val minute = wheel(0, 59) { "%02d".format(it) }.apply { value = initial.minute }
-        fun current(): LocalTime = LocalTime.of((hour.value % 12) + if (period.value == 1) 12 else 0, minute.value)
-        val update = NumberPicker.OnValueChangeListener { _, _, _ -> preview.text = format12(current()) }
-        listOf(period, hour, minute).forEach { it.setOnValueChangedListener(update) }
-        preview.text = format12(current())
-
-        val wheels = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL }
-        for ((label, picker) in listOf("구분" to period, "시" to hour, "분" to minute)) {
-            val col = LinearLayout(activity).apply {
-                orientation = LinearLayout.VERTICAL
-                gravity = Gravity.CENTER_HORIZONTAL
-                addView(activity.label(label, 11f, Palette.muted, bold = true).apply { gravity = Gravity.CENTER },
-                    LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-                        .apply { bottomMargin = activity.dp(6) })
-                addView(picker, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, activity.dp(160)))
-                background = activity.cardBg(Color.parseColor("#FAF5F8"), 14, Color.parseColor("#EADDE8"))
-                setPadding(activity.dp(6), activity.dp(12), activity.dp(6), activity.dp(8))
-            }
-            wheels.addView(col, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
-                if (label != "구분") leftMargin = activity.dp(8)
-            })
-        }
-        box.addView(wheels, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-            .apply { topMargin = activity.dp(16) })
-
-        val buttons = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL }
-        buttons.addView(dialogButton("취소", primary = false) { dialog.dismiss() },
-            LinearLayout.LayoutParams(0, activity.dp(44), 1f))
-        buttons.addView(dialogButton("확인", primary = true) {
-            if (isBed) bedtime = current() else wakeTime = current()
+        Modals.timePicker(activity, if (isBed) "취침 시각 수정" else "기상 시각 수정", initial, listOf(sheet.decorView)) { t ->
+            if (isBed) bedtime = t else wakeTime = t
             updateTimeButtons()
-            dialog.dismiss()
-        }, LinearLayout.LayoutParams(0, activity.dp(44), 1.4f).apply { leftMargin = activity.dp(8) })
-        box.addView(buttons, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-            .apply { topMargin = activity.dp(14) })
-
-        dialog.setContentView(box)
-        centerModal(dialog)
-        dialog.show()
-        dialog.window?.setLayout(minOf(activity.dp(328), activity.resources.displayMetrics.widthPixels - activity.dp(32)),
-            ViewGroup.LayoutParams.WRAP_CONTENT)
-    }
-
-    /**
-     * Centered modal (instead of the bottom dialog Samsung uses) with a blurred background.
-     * Many phones (this S20+ included) don't support system window blur, so on Android 12+ the
-     * screens behind — the app and the record sheet — are blurred directly with RenderEffect.
-     */
-    private fun centerModal(dialog: Dialog) {
-        dialog.window?.apply {
-            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-            setGravity(Gravity.CENTER)
-            setWindowAnimations(android.R.style.Animation_Dialog)
-            addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
-            setDimAmount(if (Build.VERSION.SDK_INT >= 31) 0.15f else 0.4f)
-        }
-        if (Build.VERSION.SDK_INT >= 31) {
-            val behind = listOfNotNull(activity.window.decorView, sheet.decorView)
-            val r = activity.dp(12).toFloat()
-            dialog.setOnShowListener {
-                behind.forEach { it.setRenderEffect(RenderEffect.createBlurEffect(r, r, Shader.TileMode.CLAMP)) }
-            }
-            dialog.setOnDismissListener { behind.forEach { it.setRenderEffect(null) } }
         }
     }
-
-    private fun wheel(min: Int, max: Int, fmt: (Int) -> String) = NumberPicker(activity).apply {
-        minValue = min; maxValue = max
-        displayedValues = (min..max).map(fmt).toTypedArray()
-        wrapSelectorWheel = max - min > 2
-        descendantFocusability = NumberPicker.FOCUS_BLOCK_DESCENDANTS
-        if (android.os.Build.VERSION.SDK_INT >= 29) textColor = Palette.ink
-    }
-
-    private fun dialogButton(text: String, primary: Boolean, onClick: () -> Unit) =
-        activity.label(text, 14f, if (primary) Color.WHITE else Palette.ink, bold = true).apply {
-            gravity = Gravity.CENTER
-            background = activity.rounded(if (primary) Color.parseColor("#9D7BC4") else Color.parseColor("#F0E7E1"), 14)
-            setOnClickListener { onClick() }
-        }
 
     // ---------------- save (FR-03-05) ----------------
     private fun buildSaveButton(): View = saveBtn.apply {
@@ -444,10 +352,6 @@ class SleepRecordSheet(
     companion object {
         val SATISFACTIONS = listOf("매우 나쁨", "나쁨", "보통", "좋음", "매우 좋음")
 
-        fun format12(t: LocalTime): String {
-            val period = if (t.hour >= 12) "오후" else "오전"
-            val h = (t.hour % 12).let { if (it == 0) 12 else it }
-            return "$period $h:%02d".format(t.minute)
-        }
+        fun format12(t: LocalTime): String = Modals.format12(t)
     }
 }

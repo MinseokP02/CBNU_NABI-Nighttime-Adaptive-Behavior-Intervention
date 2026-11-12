@@ -80,7 +80,11 @@ class LoginPanel(private val activity: MainActivity, private val onLoggedIn: () 
         server.save()
         authStatus.text = "가입 중…"
         activity.bg({ activity.api.register(email, pw, isi!!, catName); activity.api.login(email, pw) }) { r ->
-            r.onSuccess { done() }.onFailure { authStatus.text = it.friendly() }
+            r.onSuccess {
+                // Shown in 마이페이지 until the app can read GET /users/me (isi_score).
+                ProfileStore.rememberIsi(activity, email, isi!!)
+                done()
+            }.onFailure { authStatus.text = it.friendly() }
         }
     }
 
