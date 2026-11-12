@@ -102,9 +102,17 @@ class MainActivity : Activity() {
     }
 
     /** Home loaded the user state (cat name etc.); refresh what the profile shows. */
-    /** "기록하기" on the home analysis card. The sleep record sheet (FR-03) comes in the next commit. */
+    /** "기록하기" on the home analysis card: the sleep record sheet (FR-03). */
     fun openSleepRecord() {
-        Toast.makeText(this, "수면 기록 화면을 준비 중이에요", Toast.LENGTH_SHORT).show()
+        SleepRecordSheet(this) {
+            Toast.makeText(this, "수면 기록을 저장했어요", Toast.LENGTH_SHORT).show()
+            homePanel?.refresh()
+        }.show()
+    }
+
+    /** Show the 수면 일지 tab (phone). On a tablet it is already visible on the left. */
+    fun showDiary() {
+        if (tabButtons.isNotEmpty()) selectTab(Tab.SLEEP)
     }
 
     /** The overlay switch in 마이페이지 changed: let the home room take or give back the cat. */

@@ -1,20 +1,26 @@
 package com.cbnu.nabi.ui
 
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.Dialog
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
+import android.view.MotionEvent
+import android.view.VelocityTracker
 import android.view.View
+import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.view.Window
 import android.view.WindowManager
 import android.widget.LinearLayout
 import android.widget.ScrollView
+import kotlin.math.abs
 
 /**
  * Figma-style bottom sheet: slides up from the bottom with a handle, a title and a scrolling body.
+ * Drag it down (from the handle, or anywhere while the content is scrolled to the top) to close it.
  * While it is open the overlay cat stays hidden ([CatPresence]).
  */
 class BottomSheet(private val activity: Activity, title: String, subtitle: String? = null) {
@@ -23,9 +29,14 @@ class BottomSheet(private val activity: Activity, title: String, subtitle: Strin
     /** Put the sheet content here. */
     val body: Column = Column(activity, 10)
     private val footer = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
+    private val scroll = ScrollView(activity).apply { addView(body.root) }
+    private val sheet = DragSheet()
+
+    /** The sheet's window, e.g. to blur it behind a modal on top. */
+    val decorView: View? get() = dialog.window?.decorView
 
     init {
-        val sheet = LinearLayout(activity).apply {
+        sheet.apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
                 setColor(Color.parseColor("#FBF6F1"))
@@ -46,10 +57,7 @@ class BottomSheet(private val activity: Activity, title: String, subtitle: Strin
                 LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
                     .apply { topMargin = activity.dp(6) })
         }
-        sheet.addView(ScrollView(activity).apply {
-            isFillViewport = false
-            addView(body.root)
-        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f).apply { topMargin = activity.dp(8) })
+        sheet.addView(scroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f).apply { topMargin = activity.dp(8) })
         sheet.addView(footer)
 
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
@@ -85,4 +93,55 @@ class BottomSheet(private val activity: Activity, title: String, subtitle: Strin
     }
 
     fun dismiss() = dialog.dismiss()
+
+    /** The sheet container: follows a downward drag and closes past a threshold (or on a quick fling). */
+    private inner class DragSheet : LinearLayout(activity) {
+        private val slop = ViewConfiguration.get(activity).scaledTouchSlop
+        private var downY = 0f
+        private var dragging = false
+        private var velocity: VelocityTracker? = null
+
+        override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
+            when (ev.actionMasked) {
+                MotionEvent.ACTION_DOWN -> { downY = ev.rawY; dragging = false }
+                MotionEvent.ACTION_MOVE -> {
+                    val dy = ev.rawY - downY
+                    // Only take over a downward drag when the content can't scroll further up.
+                    if (dy > slop && abs(dy) > slop && !scroll.canScrollVertically(-1)) {
+                        dragging = true
+                        velocity = VelocityTracker.obtain()
+                        return true
+                    }
+                }
+            }
+            return false
+        }
+
+        @SuppressLint("ClickableViewAccessibility")
+        override fun onTouchEvent(ev: MotionEvent): Boolean {
+            velocity?.addMovement(ev)
+            when (ev.actionMasked) {
+                MotionEvent.ACTION_DOWN -> { downY = ev.rawY; return true }
+                MotionEvent.ACTION_MOVE -> {
+                    dragging = true
+                    translationY = (ev.rawY - downY).coerceAtLeast(0f)
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    velocity?.computeCurrentVelocity(1000)
+                    val fling = (velocity?.yVelocity ?: 0f) > activity.dp(900)
+                    velocity?.recycle(); velocity = null
+                    if (dragging && (translationY > height * 0.25f || fling)) slideOut() else settle()
+                    dragging = false
+                }
+            }
+            return true
+        }
+
+        private fun settle() = animate().translationY(0f).setDuration(180).start()
+
+        private fun slideOut() {
+            dialog.window?.setWindowAnimations(0) // we already slid it; skip the window exit animation
+            animate().translationY(height.toFloat()).setDuration(180).withEndAction { dialog.dismiss() }.start()
+        }
+    }
 }

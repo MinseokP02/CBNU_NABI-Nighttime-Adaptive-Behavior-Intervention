@@ -20,6 +20,7 @@ import com.cbnu.nabi.data.Labels
 import com.cbnu.nabi.data.Mission
 import com.cbnu.nabi.data.UserState
 import com.cbnu.nabi.pet.PetService
+import java.time.LocalDate
 import java.util.Calendar
 
 /**
@@ -173,8 +174,8 @@ class HomePanel(private val activity: MainActivity) {
             orientation = LinearLayout.VERTICAL
             background = activity.cardBg(Color.argb(240, 255, 249, 243), 20, Color.argb(178, 185, 155, 137))
             elevation = activity.dp(4).toFloat()
-            setOnClickListener { openAnalysisDetail() }
-            contentDescription = "나의 수면 분석 상세 보기"
+            setOnClickListener { onAnalysisTapped() }
+            contentDescription = "나의 수면 분석. 눌러서 수면 일지 보기"
         }
         val title = LinearLayout(activity).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -209,6 +210,8 @@ class HomePanel(private val activity: MainActivity) {
      */
     private fun showAnalysis(state: UserState?, error: String?) {
         analysisBody.removeAllViews()
+        val today = todayEntry()
+        if (today != null) { showSummary(today, state); analysisError = false; return }
         val row = LinearLayout(activity).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -241,23 +244,52 @@ class HomePanel(private val activity: MainActivity) {
         analysisError = error != null
     }
 
-    private fun openAnalysisDetail() {
-        if (analysisError) { refresh(); return }
-        val s = lastState
-        val sheet = BottomSheet(activity, "수면 분석 상세")
-        if (s == null || s.baselineStatus != "ready") {
-            sheet.body.text("수면 기록이 쌓이면 상세 분석을 확인할 수 있어요.", 14f)
-            if (s != null) sheet.body.text("개인 기준선: 수집 중 (유효 ${s.baselineValidDays}일)", 13f, 0.75f)
-        } else {
-            val factors = if (s.riskFactors.isEmpty()) "없음" else s.riskFactors.joinToString(", ") { Labels.factor(it) }
-            sheet.body.text("위험도: ${Labels.risk(s.riskLevel)}", 15f)
-            sheet.body.text("수면 상태: ${Labels.sleep(s.sleepState)}", 15f)
-            sheet.body.text("생활 습관: ${Labels.behavior(s.behaviorState)}", 15f)
-            sheet.body.text("살펴볼 점: $factors", 15f)
-            sheet.body.text("개인 기준선: 준비됨", 13f, 0.75f)
+    private fun todayEntry(): DiaryEntry? =
+        SleepDiaryStore(activity, activity.prefs.email).get(LocalDate.now())
+
+    /** Figma summary once today's diary exists: total sleep on the left, efficiency + satisfaction on the right. */
+    private fun showSummary(e: DiaryEntry, state: UserState?) {
+        val row = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        val left = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(activity.dp(14), 0, activity.dp(8), 0)
         }
-        sheet.body.text("나비는 의료 진단을 하지 않아요. 변화 경향을 살펴보는 참고용이에요.", 11f, 0.6f)
-        sheet.show()
+        val head = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        head.addView(activity.icon(R.drawable.ic_moon, Color.parseColor("#8F78B5"), 20))
+        head.addView(activity.label("총 수면시간", 11f, Palette.muted, bold = true),
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { leftMargin = activity.dp(5) })
+        left.addView(head)
+        left.addView(activity.label(formatDuration(e.totalSleepMin), 21f, title = true).apply { setPadding(0, activity.dp(6), 0, 0) })
+        // FR-04-02: the personal baseline is still being built — say so next to the numbers.
+        if (state != null && state.baselineStatus != "ready") {
+            left.addView(activity.label("기준선 수집 중 · 유효 ${state.baselineValidDays}일", 9.5f, Palette.muted).apply {
+                setPadding(0, activity.dp(5), 0, 0)
+            })
+        }
+        row.addView(left, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 0.48f))
+        row.addView(View(activity).apply { setBackgroundColor(Color.argb(51, 185, 155, 137)) },
+            LinearLayout.LayoutParams(activity.dp(1), activity.dp(60)))
+        val right = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(activity.dp(14), 0, activity.dp(14), 0)
+        }
+        right.addView(metric("수면 효율", "${e.efficiencyPct}%"))
+        right.addView(metric("수면 만족도", SleepRecordSheet.SATISFACTIONS[e.satisfaction - 1]),
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = activity.dp(10) })
+        row.addView(right, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 0.52f))
+        analysisBody.addView(row, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+    }
+
+    private fun metric(name: String, value: String) = LinearLayout(activity).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        addView(activity.label(name, 11f, Palette.muted, bold = true), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        addView(activity.label(value, 14f, bold = true))
+    }
+
+    /** Tapping the analysis card opens the 수면 일지 tab (user decision); on an error it retries instead. */
+    private fun onAnalysisTapped() {
+        if (analysisError) refresh() else activity.showDiary()
     }
 
     // ---------------- missions (FR-06-01, existing feature) ----------------
