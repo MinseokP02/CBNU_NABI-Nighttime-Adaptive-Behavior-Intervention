@@ -84,8 +84,12 @@ class ShopActivity : Activity() {
             val items = ShopStore.products.filter { filter == null || it.category == filter }
             content.addView(grid(items), lp(top = 10))
         } else {
-            content.addView(decorateButton(), lp(top = 12, height = 48))
-            content.addView(chips(OwnedFilter.values().map { it.label to it }, ownedFilter) { ownedFilter = it; render() }, lp(top = 10))
+            // filters on the left, "방 꾸미기" at the right end of the same row
+            val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+            row.addView(chips(OwnedFilter.values().map { it.label to it }, ownedFilter) { ownedFilter = it; render() },
+                LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            row.addView(decorateButton(), LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(32)).apply { leftMargin = dp(6) })
+            content.addView(row, lp(top = 10))
             content.addView(ownedList(), lp(top = 10))
         }
     }
@@ -252,10 +256,11 @@ class ShopActivity : Activity() {
     private fun decorateButton() = LinearLayout(this).apply {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER
-        background = cardBg(Palette.lavenderSoft, 16, Color.parseColor("#DCCDEB"))
-        addView(icon(R.drawable.ic_sparkle, Color.parseColor("#71568D"), 18))
-        addView(label("방 꾸미기", 14f, Color.parseColor("#71568D"), bold = true),
-            LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { leftMargin = dp(7) })
+        setPadding(dp(11), 0, dp(13), 0)
+        background = cardBg(Palette.lavenderSoft, 999, Color.parseColor("#A78CCA"))
+        addView(icon(R.drawable.ic_sparkle, Color.parseColor("#71568D"), 14))
+        addView(label("방 꾸미기", 11.5f, Color.parseColor("#71568D"), bold = true),
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { leftMargin = dp(5) })
         contentDescription = "방 꾸미기. 장착한 가구의 위치와 크기를 바꿔요"
         setOnClickListener {
             startActivity(android.content.Intent(this@ShopActivity, MainActivity::class.java)
