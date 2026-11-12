@@ -1,13 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Generated from the Figma Make Icon 'settings' (24x24, stroke 1.8). Tinted in code. -->
+<!--
+  Settings gear (24x24, stroke 1.8). Tinted in code.
+  The gear exported from Figma Make was off-centre (teeth centred at x=9.3, clipped past the left
+  edge), so this uses the Lucide "settings" icon instead — https://lucide.dev, ISC License,
+  Copyright (c) Lucide Contributors.
+-->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp" android:height="24dp"
     android:viewportWidth="24" android:viewportHeight="24">
-    <path android:pathData="M9,12 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0 Z"
+    <path android:pathData="M12.22,2h-0.44a2,2 0 0,0 -2,2v0.18a2,2 0 0,1 -1,1.73l-0.43,0.25a2,2 0 0,1 -2,0l-0.15,-0.08a2,2 0 0,0 -2.73,0.73l-0.22,0.38a2,2 0 0,0 0.73,2.73l0.15,0.1a2,2 0 0,1 1,1.72v0.51a2,2 0 0,1 -1,1.74l-0.15,0.09a2,2 0 0,0 -0.73,2.73l0.22,0.38a2,2 0 0,0 2.73,0.73l0.15,-0.08a2,2 0 0,1 2,0l0.43,0.25a2,2 0 0,1 1,1.73V20a2,2 0 0,0 2,2h0.44a2,2 0 0,0 2,-2v-0.18a2,2 0 0,1 1,-1.73l0.43,-0.25a2,2 0 0,1 2,0l0.15,0.08a2,2 0 0,0 2.73,-0.73l0.22,-0.39a2,2 0 0,0 -0.73,-2.73l-0.15,-0.08a2,2 0 0,1 -1,-1.74v-0.5a2,2 0 0,1 1,-1.74l0.15,-0.09a2,2 0 0,0 0.73,-2.73l-0.22,-0.38a2,2 0 0,0 -2.73,-0.73l-0.15,0.08a2,2 0 0,1 -2,0l-0.43,-0.25a2,2 0 0,1 -1,-1.73V4a2,2 0 0,0 -2,-2z"
         android:fillColor="#00000000"
         android:strokeColor="#FF000000" android:strokeWidth="1.8"
         android:strokeLineCap="round" android:strokeLineJoin="round" />
-    <path android:pathData="M19 13.5v-3l-2-.7-.7-1.7.9-1.9-2.1-2.1-1.9.9-1.7-.7-.7-2h-3l-.7 2-1.7.7-1.9-.9-2.1 2.1.9 1.9-.7 1.7-2 .7v3l2 .7.7 1.7-.9 1.9 2.1 2.1 1.9-.9 1.7.7.7 2h3l.7-2 1.7-.7 1.9.9 2.1-2.1-.9-1.9.7-1.7Z"
+    <path android:pathData="M9,12 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0 Z"
         android:fillColor="#00000000"
         android:strokeColor="#FF000000" android:strokeWidth="1.8"
         android:strokeLineCap="round" android:strokeLineJoin="round" />
