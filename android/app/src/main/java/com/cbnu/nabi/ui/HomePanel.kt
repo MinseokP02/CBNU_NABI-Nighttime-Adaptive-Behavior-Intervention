@@ -43,7 +43,7 @@ class HomePanel(private val activity: MainActivity) {
         background = activity.rounded(Color.argb(153, 255, 249, 243), 999)
     }
     /** Fixed note beside the 부르기 button while Nabi is out on the home screen. */
-    private val outHint = activity.label("나비는 지금 밖에서 놀고 있어요 · 불러 보세요", 11f, Color.argb(210, 74, 48, 39), bold = true).apply {
+    private val outHint = activity.label("나비는 지금 밖에서 놀고 있어요. 불러 보세요", 11f, Color.argb(210, 74, 48, 39), bold = true).apply {
         setPadding(activity.dp(11), activity.dp(6), activity.dp(11), activity.dp(6))
         background = activity.cardBg(Color.argb(225, 255, 249, 243), 999, Color.argb(150, 185, 155, 137))
         visibility = View.GONE

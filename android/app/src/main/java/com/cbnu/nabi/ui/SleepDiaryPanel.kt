@@ -74,6 +74,14 @@ class SleepDiaryPanel(private val activity: MainActivity) {
         renderDetail()
     }
 
+    /** Opened from the home analysis card: jump back to this month and today's record. */
+    fun showToday() {
+        month = YearMonth.now()
+        selected = LocalDate.now()
+        refresh()
+        (view as? android.widget.ScrollView)?.scrollTo(0, 0)
+    }
+
     /** The home screen loaded GET /users/me/state. */
     fun setState(s: UserState) {
         state = s

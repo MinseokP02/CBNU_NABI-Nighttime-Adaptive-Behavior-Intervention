@@ -143,6 +143,7 @@ class MainActivity : Activity() {
 
     /** Show the 수면 일지 tab (phone). On a tablet it is already visible on the left. */
     fun showDiary() {
+        sleepPanel?.showToday()
         if (tabButtons.isNotEmpty()) selectTab(Tab.SLEEP)
     }
 
