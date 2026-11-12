@@ -77,9 +77,10 @@ class ChatActivity : Activity() {
         panel.addView(dragZone(), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(20)))
         panel.addView(header(), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(50)))
         // Safety notice kept from the original chat screen (instead of Figma's demo-only note).
-        panel.addView(label("나비는 의료 진단을 하지 않아요 · 위급할 때는 109(자살예방), 1577-0199(정신건강), 119", 9.5f,
+        panel.addView(label("나비는 의료 진단을 하지 않아요.\n위급할 때는 109(자살예방), 1577-0199(정신건강), 119로 연락하세요.", 9.5f,
             Color.parseColor("#806E65"), bold = true).apply {
             gravity = Gravity.CENTER
+            setLineSpacing(dp(2).toFloat(), 1f)
             setPadding(dp(12), dp(6), dp(12), dp(6))
             setBackgroundColor(Color.parseColor("#F4ECE7"))
         })
@@ -90,9 +91,10 @@ class ChatActivity : Activity() {
         panel.addView(inputArea())
 
         val h = resources.displayMetrics.heightPixels
-        root.addView(panel, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
-            maxOf((h * 0.82f).toInt().coerceAtMost(dp(720)), minOf(dp(470), h - dp(40)))).apply { gravity = Gravity.BOTTOM })
+        normalH = maxOf((h * 0.82f).toInt().coerceAtMost(dp(720)), minOf(dp(470), h - dp(40)))
+        root.addView(panel, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, normalH).apply { gravity = Gravity.BOTTOM })
         setContentView(root)
+        blurApp(true)
 
         // slide up
         panel.translationY = h.toFloat()
@@ -104,24 +106,67 @@ class ChatActivity : Activity() {
     }
 
     // ---------------- panel parts ----------------
-    @SuppressLint("ClickableViewAccessibility")
     private fun dragZone() = FrameLayout(this).apply {
         addView(View(this@ChatActivity).apply { background = rounded(Color.parseColor("#B7ACA5"), 99) },
             FrameLayout.LayoutParams(dp(47), dp(5), Gravity.CENTER))
-        var startY = 0f
-        setOnTouchListener { _, ev ->
-            when (ev.actionMasked) {
-                MotionEvent.ACTION_DOWN -> startY = ev.rawY
-                MotionEvent.ACTION_MOVE -> panel.translationY = (ev.rawY - startY).coerceAtLeast(0f)
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL ->
-                    if (panel.translationY > dp(72)) close() else panel.animate().translationY(0f).setDuration(160).start()
+        contentDescription = "끌어올려 크게 보기, 끌어내려 닫기"
+        setOnTouchListener(sheetDrag)
+    }
+
+    /**
+     * Drag the handle or the title bar: down closes (past 72dp), up grows the panel to full screen.
+     * The panel snaps to its normal or full height when released.
+     */
+    @SuppressLint("ClickableViewAccessibility")
+    private val sheetDrag = View.OnTouchListener { _, ev ->
+        when (ev.actionMasked) {
+            MotionEvent.ACTION_DOWN -> { dragStartY = ev.rawY; dragStartH = panel.height; dragMoved = false }
+            MotionEvent.ACTION_MOVE -> {
+                val dy = ev.rawY - dragStartY
+                if (!dragMoved && kotlin.math.abs(dy) < dp(6)) return@OnTouchListener true
+                dragMoved = true
+                val wanted = dragStartH - dy
+                if (wanted >= normalH) {
+                    setPanelHeight(wanted.toInt().coerceAtMost(fullH()))
+                    panel.translationY = 0f
+                } else {
+                    setPanelHeight(normalH)
+                    panel.translationY = normalH - wanted
+                }
             }
-            true
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> if (dragMoved) {
+                when {
+                    panel.translationY > dp(72) -> close()
+                    panel.height > (normalH + fullH()) / 2 -> animateHeight(fullH())
+                    else -> { animateHeight(normalH); panel.animate().translationY(0f).setDuration(160).start() }
+                }
+            }
         }
-        contentDescription = "끌어내려 대화 닫기"
+        true
+    }
+    private var dragStartY = 0f
+    private var dragStartH = 0
+    private var dragMoved = false
+    private var normalH = 0
+
+    private fun fullH() = (panel.parent as View).height
+
+    private fun setPanelHeight(h: Int) {
+        val lp = panel.layoutParams
+        if (lp.height != h) { lp.height = h; panel.layoutParams = lp }
+    }
+
+    private fun animateHeight(to: Int) {
+        android.animation.ValueAnimator.ofInt(panel.height, to).apply {
+            duration = 200
+            interpolator = DecelerateInterpolator()
+            addUpdateListener { setPanelHeight(it.animatedValue as Int) }
+            start()
+        }
     }
 
     private fun header() = FrameLayout(this).apply {
+        setOnTouchListener(sheetDrag)
         addView(FrameLayout(this@ChatActivity).apply {
             addView(icon(R.drawable.ic_chevron_down, Palette.ink, 22), FrameLayout.LayoutParams(dp(22), dp(22), Gravity.CENTER))
             contentDescription = "대화 닫기"
@@ -177,9 +222,26 @@ class ChatActivity : Activity() {
         send.alpha = if (ok) 1f else 0.4f
     }
 
+    /**
+     * Blur the NABI screen behind the panel (Android 12+). Phones like the S20+ have no system
+     * window blur, so the app's own window is blurred directly. Over other apps it only dims.
+     */
+    private fun blurApp(on: Boolean) {
+        if (android.os.Build.VERSION.SDK_INT < 31) return
+        val decor = MainActivity.current?.get()?.window?.decorView ?: return
+        val r = dp(14).toFloat()
+        decor.setRenderEffect(if (on) android.graphics.RenderEffect.createBlurEffect(r, r, android.graphics.Shader.TileMode.CLAMP) else null)
+    }
+
+    override fun onDestroy() {
+        blurApp(false)
+        super.onDestroy()
+    }
+
     private fun close() {
         if (closing) return
         closing = true
+        blurApp(false)
         panel.animate().translationY(panel.height.toFloat()).setDuration(220).start()
         backdrop.animate().alpha(0f).setDuration(220).withEndAction {
             finish()

@@ -57,6 +57,7 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         CatPresence.install(application)
+        current = java.lang.ref.WeakReference(this)
         prefs = Prefs(this)
         api = ApiClient(prefs)
         currentTab = savedInstanceState?.getString(KEY_TAB)
@@ -85,6 +86,11 @@ class MainActivity : Activity() {
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         outState.putString(KEY_TAB, currentTab.name)
+    }
+
+    override fun onDestroy() {
+        if (current?.get() === this) current = null
+        super.onDestroy()
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
@@ -269,6 +275,8 @@ class MainActivity : Activity() {
 
     companion object {
         const val EXTRA_DECORATE = "decorate"
+        /** The live main screen, so the chat panel can blur it. */
+        var current: java.lang.ref.WeakReference<MainActivity>? = null
         private const val KEY_TAB = "tab"
         private const val TABLET_MIN_DP = 600
         private const val NAV_HEIGHT_DP = 64
