@@ -2,7 +2,9 @@ package com.cbnu.nabi.ui
 
 import android.app.Activity
 import android.app.Application
+import android.content.Context
 import android.os.Bundle
+import com.cbnu.nabi.data.CatAction
 import com.cbnu.nabi.pet.PetService
 
 /**
@@ -33,6 +35,15 @@ object CatPresence : Application.ActivityLifecycleCallbacks {
 
     /** Whether the home room should draw the cat right now. */
     val showInRoom: Boolean get() = inRoom || !PetService.isRunning
+
+    /** Set by the home screen: plays a reaction on the room cat. */
+    var roomReact: ((CatAction, String?) -> Unit)? = null
+
+    /** Let whichever cat is visible react: the room cat when it is in the room, otherwise the overlay. */
+    fun react(context: Context, action: CatAction, line: String?) {
+        val room = roomReact
+        if (showInRoom && room != null) room(action, line) else PetService.show(context, action, line)
+    }
 
     fun enterRoom() {
         if (inRoom) return

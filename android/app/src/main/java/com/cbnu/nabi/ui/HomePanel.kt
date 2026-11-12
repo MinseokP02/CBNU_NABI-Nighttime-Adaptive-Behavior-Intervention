@@ -97,6 +97,7 @@ class HomePanel(private val activity: MainActivity) {
             override fun onViewDetachedFromWindow(v: View) { clock.removeCallbacks(tick) }
         })
         CatPresence.onChanged = { updateCat() }
+        CatPresence.roomReact = { action, line -> roomCat.react(action, line) }
 
         coinText.text = ShopStore.coins(activity).toString()
         showAnalysis(null, null)
@@ -340,7 +341,7 @@ class HomePanel(private val activity: MainActivity) {
 
     /** Let whichever cat is visible react (room cat if it is here, otherwise the overlay). */
     private fun catReact(action: CatAction, line: String?) {
-        if (roomCat.isShown) roomCat.react(action, line) else PetService.show(activity, action, line)
+        CatPresence.react(activity, action, line)
     }
 
     // ---------------- room & cat (FR-05) ----------------

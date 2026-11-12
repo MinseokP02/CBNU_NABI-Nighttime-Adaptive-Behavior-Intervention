@@ -11,4 +11,12 @@
         <item name="android:textColorSecondary">@color/nabi_muted</item>
         <item name="android:fontFamily">@font/gowun_dodum</item>
     </style>
+
+    <!-- Chat: the app stays visible behind the bottom panel (Figma chat sheet). -->
+    <style name="Theme.Nabi.Sheet">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowAnimationStyle">@null</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+    </style>
 </resources>
