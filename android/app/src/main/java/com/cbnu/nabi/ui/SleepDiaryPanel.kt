@@ -52,7 +52,9 @@ class SleepDiaryPanel(private val activity: MainActivity) {
                 LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { leftMargin = activity.dp(5) })
             contentDescription = "오늘 수면 기록하기"
             setOnClickListener { activity.openSleepRecord() }
-        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, activity.dp(38)))
+        // MATCH_PARENT in a wrap-content row = exactly the title's height, so the pill and the
+        // "나의 수면 일지" text share the same top and bottom.
+        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT))
         page.add(header)
         page.add(activity.label("하루하루 쌓이는 나의 수면 기록", 12f, Palette.muted).apply { setPadding(0, 0, 0, activity.dp(4)) })
         page.add(factorsBox)
