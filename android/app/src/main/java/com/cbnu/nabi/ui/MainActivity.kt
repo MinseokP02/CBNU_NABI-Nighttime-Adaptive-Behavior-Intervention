@@ -56,6 +56,7 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        lockPortraitOnPhones()
         CatPresence.install(application)
         current = java.lang.ref.WeakReference(this)
         prefs = Prefs(this)
@@ -200,14 +201,24 @@ class MainActivity : Activity() {
             }
         }
 
+        home.setTabBarShown(!tablet)
         return if (tablet) buildThreePane() else buildTabs()
     }
 
-    /** FR-01-03: provisional split rule — device's shortest side >= 600dp. Confirm on real devices. */
-    private fun isTablet(): Boolean = resources.configuration.smallestScreenWidthDp >= TABLET_MIN_DP
+    /**
+     * FR-01-03 split rule, set after testing a tablet-sized screen: 3 panes only on a tablet
+     * (shortest side >= 600dp) held wide enough (current width >= 840dp, i.e. landscape).
+     * Portrait tablets (~800dp → 266dp per pane) and phones in landscape use the bottom tabs.
+     */
+    private fun isTablet(): Boolean = resources.configuration.let {
+        it.smallestScreenWidthDp >= TABLET_MIN_DP && it.screenWidthDp >= THREE_PANE_MIN_WIDTH_DP
+    }
 
     private fun buildThreePane(): View {
         tabBar = null
+        // No tabs here: forget the phone tab buttons, or selectTab() (방 꾸미기, analysis card)
+        // would hide the other two panes and stretch home across the whole screen.
+        tabButtons.clear()
         val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         Tab.values().forEachIndexed { i, tab ->
             if (i > 0) row.addView(divider(), LinearLayout.LayoutParams(dp(1), LinearLayout.LayoutParams.MATCH_PARENT))
@@ -280,6 +291,7 @@ class MainActivity : Activity() {
         var current: java.lang.ref.WeakReference<MainActivity>? = null
         private const val KEY_TAB = "tab"
         private const val TABLET_MIN_DP = 600
+        private const val THREE_PANE_MIN_WIDTH_DP = 840
         private const val NAV_HEIGHT_DP = 64
         private const val NAV_BOTTOM_DP = 9
         private val NAV_TEXT = Color.parseColor("#6F5D54")

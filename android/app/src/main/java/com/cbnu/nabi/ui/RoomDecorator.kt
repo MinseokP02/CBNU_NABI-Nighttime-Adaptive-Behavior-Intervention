@@ -32,11 +32,15 @@ class RoomDecorator(
     private val items: Map<Slot, ImageView>,
     private val aspect: (ImageView) -> Float,
     private val apply: (Slot, Placement) -> Unit,
-    private val onReset: (afterLayout: () -> Unit) -> Unit,
-    private val onFinish: (saved: Map<Slot, Placement>?) -> Unit,
+    /** [saved] is null when cancelled; [stored] = items put back into 내 아이템 (only when saved). */
+    private val onFinish: (saved: Map<Slot, Placement>?, stored: Set<Slot>) -> Unit,
 ) : FrameLayout(activity) {
 
     private val work = mutableMapOf<Slot, Placement>()
+    /** The room as it was when 방 꾸미기 opened — "처음 배치로" goes back to this. */
+    private val initial = mutableMapOf<Slot, Placement>()
+    /** Items put away during this session (applied only on 완료). */
+    private val stored = mutableSetOf<Slot>()
     private var selected: Slot? = null
     private var dragging = false
     private var grabDx = 0f
@@ -61,6 +65,14 @@ class RoomDecorator(
         addView(nameText, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
             .apply { leftMargin = activity.dp(8); rightMargin = activity.dp(8) })
         addView(roundButton(R.drawable.ic_plus, "크게") { resizeBy(1.1f) })
+        // "보관": take this piece out of the room (back to 내 아이템 › 보관 중)
+        addView(activity.label("보관", 11f, Palette.lavenderDeep, bold = true).apply {
+            gravity = Gravity.CENTER
+            setPadding(activity.dp(12), 0, activity.dp(12), 0)
+            background = activity.cardBg(Color.WHITE, 999, Color.parseColor("#C9B5E6"))
+            contentDescription = "이 가구 보관하기"
+            setOnClickListener { storeSelected() }
+        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, activity.dp(34)).apply { leftMargin = activity.dp(6) })
         visibility = View.GONE
     }
 
@@ -80,6 +92,7 @@ class RoomDecorator(
             setMargins(activity.dp(16), 0, activity.dp(16), activity.dp(20))
         })
         captureFromViews()
+        initial.putAll(work)
     }
 
     // ---------------- UI ----------------
@@ -93,7 +106,7 @@ class RoomDecorator(
         row.addView(activity.label("방 꾸미기", 18f, title = true),
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { leftMargin = activity.dp(7) })
         addView(row)
-        addView(activity.label("가구를 눌러서 옮겨 보세요.\n두 손가락이나 − / + 로 크기를 바꿀 수 있어요.", 11.5f, Palette.muted).apply {
+        addView(activity.label("가구를 눌러서 옮겨 보세요.\n두 손가락이나 − / + 로 크기를 바꾸고, 보관하면 내 아이템으로 돌아가요.", 11.5f, Palette.muted).apply {
             setPadding(0, activity.dp(6), 0, 0); setLineSpacing(activity.dp(2).toFloat(), 1f)
         })
     }
@@ -185,15 +198,31 @@ class RoomDecorator(
         update(slot, p.copy(width = p.width * factor))
     }
 
+    /** "처음 배치로": back to how the room was when 방 꾸미기 opened (stored items come back too). */
     private fun reset() {
         select(null)
-        onReset { captureFromViews() }
+        stored.forEach { items[it]?.visibility = View.VISIBLE }
+        stored.clear()
+        work.clear()
+        work.putAll(initial)
+        initial.forEach { (slot, p) -> apply(slot, p) }
+    }
+
+    private fun storeSelected() {
+        val s = selected ?: return
+        select(null)
+        stored += s
+        work.remove(s)
+        items[s]?.visibility = View.GONE
     }
 
     private fun finish(save: Boolean) {
         select(null)
-        onFinish(if (save) work.toMap() else null)
+        if (save) onFinish(work.toMap(), stored.toSet()) else onFinish(null, emptySet())
     }
+
+    /** System back: leave without saving anything. */
+    fun cancel() = finish(false)
 
     // ---------------- touch ----------------
     /** Topmost visible item under the finger (cat tower, then plant, then rug). */

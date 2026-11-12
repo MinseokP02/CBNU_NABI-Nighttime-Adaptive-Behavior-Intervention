@@ -45,8 +45,9 @@ object ShopStore {
     fun isOwned(c: Context, id: String) = id == DEFAULT_RUG || id in owned(c)
 
     /** Item equipped in [slot]; the ivory rug is the default rug. */
+    /** "" = the slot was emptied on purpose (e.g. the rug was put away), so it doesn't fall back to the default. */
     fun equipped(c: Context, slot: Slot): String? =
-        sp(c).getString(K_EQUIP + slot.name, if (slot == Slot.RUG) DEFAULT_RUG else null)
+        sp(c).getString(K_EQUIP + slot.name, if (slot == Slot.RUG) DEFAULT_RUG else null)?.takeIf { it.isNotEmpty() }
 
     enum class Result { SUCCESS, INSUFFICIENT, OWNED, ERROR }
 
@@ -66,15 +67,21 @@ object ShopStore {
         return sp(c).edit().putString(K_EQUIP + slot.name, p.id).commit()
     }
 
+    /** 방 꾸미기 › 보관: take the item out of the room; it shows as "보관 중" in 내 아이템. */
+    fun unequip(c: Context, slot: Slot): Boolean =
+        sp(c).edit().putString(K_EQUIP + slot.name, "").commit()
+
     // ---------------- 방 꾸미기 (user-arranged placement) ----------------
     /**
-     * Where the user put an item, as fractions of the room so it looks the same on any screen:
-     * [cx] = horizontal centre / room width, [bottom] = bottom edge / room height,
-     * [width] = item width / room width.
+     * Where an item sits, as fractions of a reference box: [cx] = horizontal centre, [bottom] =
+     * bottom edge, [width] = item width. Saved placements are relative to the ROOM BACKGROUND IMAGE
+     * (not the screen), so furniture stays on the same spot of the drawn floor on phones and tablets.
      */
     data class Placement(val cx: Float, val bottom: Float, val width: Float)
 
-    private const val K_PLACE = "place_"
+    // v2 = background-image relative. "place_" (screen relative, first version) is ignored.
+    private const val K_PLACE = "placeimg_"
+    private const val K_PLACE_OLD = "place_"
 
     /** Null → the Figma default position. */
     fun placement(c: Context, slot: Slot): Placement? =
@@ -89,7 +96,7 @@ object ShopStore {
 
     fun clearPlacements(c: Context): Boolean {
         val e = sp(c).edit()
-        Slot.values().forEach { e.remove(K_PLACE + it.name) }
+        Slot.values().forEach { e.remove(K_PLACE + it.name); e.remove(K_PLACE_OLD + it.name) }
         return e.commit()
     }
 }

@@ -34,6 +34,17 @@ fun Throwable.friendly(): String =
 
 fun Activity.dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
 
+/**
+ * Phones stay in portrait (landscape on a phone looked broken). Tablets may rotate: landscape is
+ * where the 3-pane layout appears (FR-01-02). Not used on the translucent chat panel, which simply
+ * follows the screen behind it (fixed orientation on translucent activities crashes on Android 8.0).
+ */
+fun Activity.lockPortraitOnPhones() {
+    if (resources.configuration.smallestScreenWidthDp < 600) {
+        requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+    }
+}
+
 /** Colors. The first group are the Figma design tokens (index.css :root) — use these for new UI (NFR-05). */
 object Palette {
     val page = Color.parseColor("#F8EEE6")

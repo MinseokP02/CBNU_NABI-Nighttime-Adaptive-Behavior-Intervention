@@ -31,8 +31,15 @@ class ShopActivity : Activity() {
     private lateinit var coinText: TextView
     private lateinit var content: LinearLayout
 
+    companion object {
+        /** Open on the 내 아이템 tab (e.g. coming back from 방 꾸미기 with the back button). */
+        const val EXTRA_OPEN_OWNED = "open_owned"
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        lockPortraitOnPhones()
+        if (intent.getBooleanExtra(EXTRA_OPEN_OWNED, false)) tab = Tab.OWNED
         val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(Palette.page) }
 
         // header: back · title · coins

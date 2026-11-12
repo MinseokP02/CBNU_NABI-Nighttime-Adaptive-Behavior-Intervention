@@ -92,7 +92,8 @@ class ChatActivity : Activity() {
 
         val h = resources.displayMetrics.heightPixels
         normalH = maxOf((h * 0.82f).toInt().coerceAtMost(dp(720)), minOf(dp(470), h - dp(40)))
-        root.addView(panel, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, normalH).apply { gravity = Gravity.BOTTOM })
+        val panelW = minOf(resources.displayMetrics.widthPixels, dp(BottomSheet.MAX_WIDTH_DP))
+        root.addView(panel, FrameLayout.LayoutParams(panelW, normalH).apply { gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL })
         setContentView(root)
         blurApp(true)
 

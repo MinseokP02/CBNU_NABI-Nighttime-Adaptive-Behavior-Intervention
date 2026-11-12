@@ -322,8 +322,13 @@ class SleepDiaryPanel(private val activity: MainActivity) {
         days.forEachIndexed { i, d ->
             val col = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL }
             val m = minutes[i]
-            col.addView(activity.label(if (m == null) "—" else formatDuration(m), 8.5f, Palette.muted).apply {
-                gravity = Gravity.CENTER; maxLines = 1
+            val valueText = when {
+                m == null -> "—\n "
+                m / 60 == 0 -> "\n${m % 60}분"
+                else -> "${m / 60}시간\n${m % 60}분"
+            }
+            col.addView(activity.label(valueText, 8.5f, Palette.muted).apply {
+                gravity = Gravity.CENTER; maxLines = 2
             }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
             val track = FrameLayout(activity)
             track.addView(View(activity).apply { setBackgroundColor(Color.parseColor("#EADDD3")) },
@@ -408,9 +413,10 @@ class SleepDiaryPanel(private val activity: MainActivity) {
 
         val src = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(0, activity.dp(10), 0, 0) }
         src.addView(activity.icon(R.drawable.ic_source, Palette.lavender, 20))
-        src.addView(activity.label("데이터 출처", 11f, Palette.muted),
-            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { leftMargin = activity.dp(6) })
-        src.addView(activity.label("사용자 입력 · 이 기기에서 저장", 11f, bold = true))
+        src.addView(activity.label("데이터 출처", 11f, Palette.muted).apply { maxLines = 1 },
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { leftMargin = activity.dp(6) })
+        src.addView(activity.label("사용자 입력 · 이 기기에서 저장", 11f, bold = true).apply { gravity = Gravity.END },
+            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { leftMargin = activity.dp(8) })
         c.addView(src)
         detailBox.addView(c)
     }

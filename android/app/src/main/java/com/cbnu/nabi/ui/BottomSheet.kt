@@ -86,14 +86,20 @@ class BottomSheet(private val activity: Activity, title: String, subtitle: Strin
         dialog.show()
         // Full width, at most 88% of the screen height.
         val maxH = (activity.resources.displayMetrics.heightPixels * 0.88f).toInt()
-        dialog.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        // Full width on phones; at most 560dp, centred, on tablets.
+        val w = minOf(activity.resources.displayMetrics.widthPixels, activity.dp(MAX_WIDTH_DP))
+        dialog.window?.setLayout(w, ViewGroup.LayoutParams.WRAP_CONTENT)
         dialog.window?.decorView?.post {
             val h = dialog.window?.decorView?.height ?: 0
-            if (h > maxH) dialog.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, maxH)
+            if (h > maxH) dialog.window?.setLayout(w, maxH)
         }
     }
 
     fun dismiss() = dialog.dismiss()
+
+    companion object {
+        const val MAX_WIDTH_DP = 560
+    }
 
     /** The sheet container: follows a downward drag and closes past a threshold (or on a quick fling). */
     private inner class DragSheet : LinearLayout(activity) {

@@ -389,36 +389,55 @@ class HomePanel(private val activity: MainActivity) {
      * cat tower bottom-right (34vw, 116–145dp), plant bottom-left (23vw, 72–98dp).
      */
     private fun layoutRoom(w: Int, h: Int) {
-        val rugW = minOf((w * 0.8f).toInt(), activity.dp(344))
-        val rugH = rugW / 2 // floor band is sized for the 2:1 default rug, whatever rug is equipped
-        rug.layoutParams = (rug.layoutParams as FrameLayout.LayoutParams).apply {
-            width = rugW; height = (rugW * aspect(rug)).toInt()
-            gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
-            bottomMargin = activity.dp(RUG_BOTTOM_DP)
+        if (w <= 0 || h <= 0) return
+        // Furniture lives on the drawn floor of the background image, so it keeps the same spot and
+        // proportions on any screen shape. Saved arrangement (방 꾸미기) first, else the Figma default.
+        for ((slot, v) in itemViews) {
+            val p = ShopStore.placement(activity, slot) ?: DEFAULT_PLACEMENTS.getValue(slot)
+            placeItem(v, imageToScreen(p, w, h), w, h)
         }
-        val towerW = (w * 0.34f).toInt().coerceIn(activity.dp(116), activity.dp(145))
-        tower.layoutParams = (tower.layoutParams as FrameLayout.LayoutParams).apply {
-            width = towerW; height = (towerW * aspect(tower)).toInt()
-            gravity = Gravity.BOTTOM or Gravity.END
-            rightMargin = activity.dp(11); bottomMargin = activity.dp(77)
-        }
-        val plantW = (w * 0.23f).toInt().coerceIn(activity.dp(72), activity.dp(98))
-        plant.layoutParams = (plant.layoutParams as FrameLayout.LayoutParams).apply {
-            width = plantW; height = (plantW * aspect(plant)).toInt()
-            gravity = Gravity.BOTTOM or Gravity.START
-            leftMargin = activity.dp(15); bottomMargin = activity.dp(78)
-        }
-        // The cat's "screen": a band of floor around the rug. CatView keeps its feet between
-        // 28% of this height from the top and 28dp above the bottom.
+        // The cat's "screen": a band of floor around the DEFAULT rug spot (not the user's rug, so the
+        // cat's area doesn't jump around). CatView keeps its feet between 28% of this height from the
+        // top and 28dp above the bottom.
+        val rugSpot = imageToScreen(DEFAULT_PLACEMENTS.getValue(ShopStore.Slot.RUG), w, h)
+        val rugW = (rugSpot.width * w).toInt()
+        val rugBottom = (rugSpot.bottom * h).toInt()
         floor.layoutParams = (floor.layoutParams as FrameLayout.LayoutParams).apply {
-            height = rugH + activity.dp(70)
+            height = rugW / 2 + activity.dp(70)
             gravity = Gravity.BOTTOM
-            bottomMargin = activity.dp(RUG_BOTTOM_DP - 8)
+            bottomMargin = (h - rugBottom - activity.dp(8)).coerceAtLeast(0)
         }
-        // 방 꾸미기: where the user put things overrides the Figma defaults.
-        for ((slot, v) in itemViews) ShopStore.placement(activity, slot)?.let { placeItem(v, it, w, h) }
         root.requestLayout()
         floor.post { roomCat.onFloorResized() }
+    }
+
+    /** Where the room background is drawn (CENTER_CROP of the 900×1600 room image) in this view. */
+    private fun imageFrame(w: Int, h: Int): android.graphics.RectF {
+        val d = dayBg.drawable
+        val iw = (d?.intrinsicWidth ?: 900).toFloat(); val ih = (d?.intrinsicHeight ?: 1600).toFloat()
+        val scale = maxOf(w / iw, h / ih)
+        val dw = iw * scale; val dh = ih * scale
+        val left = (w - dw) / 2f; val top = (h - dh) / 2f
+        return android.graphics.RectF(left, top, left + dw, top + dh)
+    }
+
+    /** Background-image fractions → view fractions (what [placeItem] and the decorator use). */
+    private fun imageToScreen(p: ShopStore.Placement, w: Int, h: Int): ShopStore.Placement {
+        val f = imageFrame(w, h)
+        return ShopStore.Placement(
+            (f.left + p.cx * f.width()) / w,
+            (f.top + p.bottom * f.height()) / h,
+            p.width * f.width() / w,
+        )
+    }
+
+    private fun screenToImage(p: ShopStore.Placement, w: Int, h: Int): ShopStore.Placement {
+        val f = imageFrame(w, h)
+        return ShopStore.Placement(
+            (p.cx * w - f.left) / f.width(),
+            (p.bottom * h - f.top) / f.height(),
+            p.width * w / f.width(),
+        )
     }
 
     /** Lay an item out from a room-fraction [ShopStore.Placement] (bottom-centre anchored). */
@@ -434,6 +453,17 @@ class HomePanel(private val activity: MainActivity) {
         }
     }
 
+    /**
+     * Phone: the floating tab bar covers the bottom ~80dp, so the 부르기 button sits above it (Figma).
+     * Tablet (3 panes, no tab bar): bring the button and its note down near the bottom edge.
+     */
+    fun setTabBarShown(shown: Boolean) {
+        val fabBottom = activity.dp(if (shown) 92 else 24)
+        (fab.layoutParams as FrameLayout.LayoutParams).bottomMargin = fabBottom
+        (outHint.layoutParams as FrameLayout.LayoutParams).bottomMargin = fabBottom + activity.dp(15)
+        fab.requestLayout(); outHint.requestLayout()
+    }
+
     // ---------------- 방 꾸미기 mode ----------------
     /** Opened from 상점 › 내 아이템 › 방 꾸미기. Hides everything but the room while arranging. */
     fun enterDecorate() {
@@ -446,16 +476,21 @@ class HomePanel(private val activity: MainActivity) {
         clock.removeCallbacks(touchHintTask)
         roomCat.hide()
         activity.setTabBarVisible(false)
+        // Show what was just equipped in the shop first; start arranging once that is laid out.
+        updateFurniture()
+        root.post { startDecorator() }
+    }
+
+    private fun startDecorator() {
+        if (decorator != null) return
         val d = RoomDecorator(activity, root, itemViews.filterValues { it.visibility == View.VISIBLE }, ::aspect,
             apply = { slot, p -> placeItem(itemViews.getValue(slot), p, root.width, root.height) },
-            onReset = { after ->
-                ShopStore.clearPlacements(activity)
-                layoutRoom(root.width, root.height)
-                root.post(after)
-            },
-            onFinish = { saved ->
-                if (saved != null && !ShopStore.savePlacements(activity, saved)) {
-                    Toast.makeText(activity, "배치를 저장하지 못했어요", Toast.LENGTH_SHORT).show()
+            onFinish = { saved, stored ->
+                if (saved != null) {
+                    val inImage = saved.mapValues { (_, p) -> screenToImage(p, root.width, root.height) }
+                    val ok = ShopStore.savePlacements(activity, inImage) &&
+                        stored.all { ShopStore.unequip(activity, it) }
+                    if (!ok) Toast.makeText(activity, "배치를 저장하지 못했어요", Toast.LENGTH_SHORT).show()
                 }
                 exitDecorate()
             })
@@ -471,14 +506,17 @@ class HomePanel(private val activity: MainActivity) {
         fab.visibility = View.VISIBLE
         hint.visibility = View.VISIBLE
         activity.setTabBarVisible(true)
-        layoutRoom(root.width, root.height)
+        updateFurniture() // saved state: equipped items + placements (a cancel drops unsaved changes)
         updateCat()
     }
 
     /** System back while decorating: leave without saving. */
     fun handleBack(): Boolean {
-        if (decorator == null) return false
-        exitDecorate()
+        val d = decorator ?: return false
+        d.cancel() // nothing saved
+        // back to where 방 꾸미기 was opened from: 상점 › 내 아이템
+        activity.startActivity(android.content.Intent(activity, ShopActivity::class.java)
+            .putExtra(ShopActivity.EXTRA_OPEN_OWNED, true))
         return true
     }
 
@@ -585,6 +623,15 @@ class HomePanel(private val activity: MainActivity) {
     fun onOverlayChanged() = root.post { updateCat() }
 
     companion object {
-        private const val RUG_BOTTOM_DP = 78
+        /**
+         * Figma default spots, converted from the Figma CSS on a 390×844 phone into fractions of
+         * the room image: rug centred 78dp above the bottom at 80% width (max 344), cat tower
+         * bottom-right (34vw), plant bottom-left (23vw).
+         */
+        private val DEFAULT_PLACEMENTS = mapOf(
+            ShopStore.Slot.RUG to ShopStore.Placement(0.5f, 0.9076f, 0.657f),
+            ShopStore.Slot.TOWER to ShopStore.Placement(0.748f, 0.9088f, 0.279f),
+            ShopStore.Slot.PLANT to ShopStore.Placement(0.2154f, 0.9076f, 0.189f),
+        )
     }
 }
