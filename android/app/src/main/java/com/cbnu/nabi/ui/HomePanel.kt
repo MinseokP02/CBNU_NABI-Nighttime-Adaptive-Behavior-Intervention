@@ -1,5 +1,6 @@
 package com.cbnu.nabi.ui
 
+import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
 import android.os.Handler
@@ -34,12 +35,9 @@ class HomePanel(private val activity: MainActivity) {
     private val root = FrameLayout(activity).apply { clipChildren = false }
     private val dayBg = bgImage(R.drawable.room_day)
     private val nightBg = bgImage(R.drawable.room_night)
-    private val rug = ImageView(activity).apply {
-        setImageResource(R.drawable.rug_ivory)
-        scaleType = ImageView.ScaleType.FIT_CENTER
-        adjustViewBounds = true
-        importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
-    }
+    private val rug = roomItem(R.drawable.rug_ivory)
+    private val tower = roomItem(R.drawable.shop_wood_cat_tower).apply { visibility = View.GONE }
+    private val plant = roomItem(R.drawable.shop_green_plant).apply { visibility = View.GONE }
     private val hint = activity.label("", 10f, Color.argb(190, 74, 48, 39), bold = true).apply {
         setPadding(activity.dp(9), activity.dp(3), activity.dp(9), activity.dp(3))
         background = activity.rounded(Color.argb(153, 255, 249, 243), 999)
@@ -68,6 +66,8 @@ class HomePanel(private val activity: MainActivity) {
         root.addView(dayBg, matchParent())
         root.addView(nightBg, matchParent())
         root.addView(rug, FrameLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT))
+        root.addView(plant, FrameLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT))
+        root.addView(tower, FrameLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(hint, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(floor, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0))
 
@@ -141,7 +141,7 @@ class HomePanel(private val activity: MainActivity) {
             addView(activity.icon(R.drawable.ic_store, Color.parseColor("#9B604D"), 19),
                 FrameLayout.LayoutParams(activity.dp(19), activity.dp(19), Gravity.CENTER))
             contentDescription = "상점 열기"
-            setOnClickListener { Toast.makeText(activity, "상점은 곧 열려요", Toast.LENGTH_SHORT).show() }
+            setOnClickListener { activity.startActivity(Intent(activity, ShopActivity::class.java)) }
         }
         actions.addView(store, LinearLayout.LayoutParams(activity.dp(32), activity.dp(32)).apply { leftMargin = activity.dp(6) })
         row.addView(actions)
@@ -337,6 +337,12 @@ class HomePanel(private val activity: MainActivity) {
     }
 
     // ---------------- room & cat (FR-05) ----------------
+    private fun roomItem(res: Int) = ImageView(activity).apply {
+        setImageResource(res)
+        scaleType = ImageView.ScaleType.FIT_CENTER
+        importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+    }
+
     private fun bgImage(res: Int) = ImageView(activity).apply {
         setImageResource(res)
         scaleType = ImageView.ScaleType.CENTER_CROP
@@ -353,14 +359,29 @@ class HomePanel(private val activity: MainActivity) {
         nightBg.animate().alpha(if (day) 0f else 1f).setDuration(500).start()
     }
 
-    /** Positions from the Figma CSS: rug 78dp above the bottom, at most 80% / 344dp wide. */
+    /**
+     * Positions from the Figma CSS: rug 78dp above the bottom, at most 80% / 344dp wide;
+     * cat tower bottom-right (34vw, 116–145dp), plant bottom-left (23vw, 72–98dp).
+     */
     private fun layoutRoom(w: Int, h: Int) {
         val rugW = minOf((w * 0.8f).toInt(), activity.dp(344))
-        val rugH = rugW / 2 // rug image is 2:1
+        val rugH = rugW / 2 // floor band is sized for the 2:1 default rug, whatever rug is equipped
         rug.layoutParams = (rug.layoutParams as FrameLayout.LayoutParams).apply {
-            width = rugW; height = rugH
+            width = rugW; height = (rugW * aspect(rug)).toInt()
             gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
             bottomMargin = activity.dp(RUG_BOTTOM_DP)
+        }
+        val towerW = (w * 0.34f).toInt().coerceIn(activity.dp(116), activity.dp(145))
+        tower.layoutParams = (tower.layoutParams as FrameLayout.LayoutParams).apply {
+            width = towerW; height = (towerW * aspect(tower)).toInt()
+            gravity = Gravity.BOTTOM or Gravity.END
+            rightMargin = activity.dp(11); bottomMargin = activity.dp(77)
+        }
+        val plantW = (w * 0.23f).toInt().coerceIn(activity.dp(72), activity.dp(98))
+        plant.layoutParams = (plant.layoutParams as FrameLayout.LayoutParams).apply {
+            width = plantW; height = (plantW * aspect(plant)).toInt()
+            gravity = Gravity.BOTTOM or Gravity.START
+            leftMargin = activity.dp(15); bottomMargin = activity.dp(78)
         }
         hint.layoutParams = (hint.layoutParams as FrameLayout.LayoutParams).apply {
             gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
@@ -375,6 +396,26 @@ class HomePanel(private val activity: MainActivity) {
         }
         root.requestLayout()
         floor.post { roomCat.onFloorResized() }
+    }
+
+    /** height / width of the image currently shown (falls back to 1:1). */
+    private fun aspect(v: ImageView): Float {
+        val d = v.drawable ?: return 1f
+        return if (d.intrinsicWidth > 0) d.intrinsicHeight.toFloat() / d.intrinsicWidth else 1f
+    }
+
+    /** FR-06-05: show the rug / cat tower / plant equipped in the shop ([ShopStore], temporary data). */
+    private fun updateFurniture() {
+        fun show(v: ImageView, slot: ShopStore.Slot) {
+            val item = ShopStore.equipped(activity, slot)?.let(ShopStore::find)
+            if (item == null) { v.visibility = View.GONE; return }
+            v.setImageResource(item.image)
+            v.visibility = View.VISIBLE
+        }
+        show(rug, ShopStore.Slot.RUG)
+        show(tower, ShopStore.Slot.TOWER)
+        show(plant, ShopStore.Slot.PLANT)
+        if (root.width > 0) layoutRoom(root.width, root.height)
     }
 
     /** Show or remove the room cat depending on [CatPresence]. It only comes in when called. */
@@ -401,6 +442,7 @@ class HomePanel(private val activity: MainActivity) {
     /** Called on resume: reload state + missions, refresh coins and decide where the cat is. */
     fun refresh() {
         coinText.text = ShopStore.coins(activity).toString()
+        updateFurniture()
         root.post { updateCat() }
         if (lastState == null) showAnalysis(null, null)
         activity.bg({ activity.api.userState() to activity.api.activeMissions() }) { r ->

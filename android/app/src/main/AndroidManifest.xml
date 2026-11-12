@@ -27,6 +27,10 @@
         </activity>
 
         <activity
+            android:name=".ui.ShopActivity"
+            android:exported="false" />
+
+        <activity
             android:name=".ui.ChatActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />
