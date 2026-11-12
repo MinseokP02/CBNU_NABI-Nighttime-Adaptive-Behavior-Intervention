@@ -65,10 +65,14 @@ class BottomSheet(private val activity: Activity, title: String, subtitle: Strin
             setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
             setGravity(Gravity.BOTTOM)
             setWindowAnimations(android.R.style.Animation_InputMethod)
-            setDimAmount(0.35f)
+            // lighter dim when the screen behind is blurred too
+            setDimAmount(if (android.os.Build.VERSION.SDK_INT >= 31) 0.2f else 0.35f)
             addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
             setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         }
+        // blur the app behind the sheet while it is open
+        dialog.setOnShowListener { Blur.push(activity.window.decorView) }
+        dialog.setOnDismissListener { Blur.pop(activity.window.decorView) }
     }
 
     /** A view pinned under the scrolling body (e.g. the "기록 저장" button). */

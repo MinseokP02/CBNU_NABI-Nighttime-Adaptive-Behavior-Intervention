@@ -3,8 +3,6 @@ package com.cbnu.nabi.ui
 import android.app.Activity
 import android.app.Dialog
 import android.graphics.Color
-import android.graphics.RenderEffect
-import android.graphics.Shader
 import android.graphics.drawable.ColorDrawable
 import android.os.Build
 import android.view.Gravity
@@ -33,14 +31,9 @@ object Modals {
             addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
             setDimAmount(if (Build.VERSION.SDK_INT >= 31) 0.15f else 0.4f)
         }
-        if (Build.VERSION.SDK_INT >= 31) {
-            val behind = (listOf<View?>(activity.window.decorView) + extraBehind).filterNotNull()
-            val r = activity.dp(12).toFloat()
-            dialog.setOnShowListener {
-                behind.forEach { it.setRenderEffect(RenderEffect.createBlurEffect(r, r, Shader.TileMode.CLAMP)) }
-            }
-            dialog.setOnDismissListener { behind.forEach { it.setRenderEffect(null) } }
-        }
+        val behind = (listOf<View?>(activity.window.decorView) + extraBehind).filterNotNull()
+        dialog.setOnShowListener { behind.forEach(Blur::push) }
+        dialog.setOnDismissListener { behind.forEach(Blur::pop) }
     }
 
     /** Rounded card the modals are built on. */

@@ -62,6 +62,31 @@ object Fonts {
     fun body(c: Context): Typeface = bodyFace ?: c.resources.getFont(R.font.gowun_dodum).also { bodyFace = it }
 }
 
+/**
+ * Blur behind sheets and modals (Android 12+). Phones like the Galaxy S20+ have no system window
+ * blur, so the app's own windows are blurred with RenderEffect. Counted per view, so a modal
+ * closing on top of a sheet doesn't un-blur what the sheet still covers.
+ */
+object Blur {
+    private val counts = java.util.WeakHashMap<View, Int>()
+
+    fun push(v: View?) {
+        if (v == null || android.os.Build.VERSION.SDK_INT < 31) return
+        val n = (counts[v] ?: 0) + 1
+        counts[v] = n
+        if (n == 1) {
+            val r = 12f * v.resources.displayMetrics.density
+            v.setRenderEffect(android.graphics.RenderEffect.createBlurEffect(r, r, android.graphics.Shader.TileMode.CLAMP))
+        }
+    }
+
+    fun pop(v: View?) {
+        if (v == null || android.os.Build.VERSION.SDK_INT < 31) return
+        val n = (counts[v] ?: return) - 1
+        if (n <= 0) { counts.remove(v); v.setRenderEffect(null) } else counts[v] = n
+    }
+}
+
 /** Rounded card background with the Figma hairline border. */
 fun Activity.cardBg(
     fill: Int = Palette.card,
