@@ -83,6 +83,8 @@ class ProfilePanel(private val activity: MainActivity, private val onLogout: () 
             activity.moveTaskToBack(true)
         } else {
             activity.stopService(intent)
+            // The service stops asynchronously; then the cat lives in the home room again.
+            overlaySwitch.postDelayed({ activity.onOverlayChanged() }, 400)
         }
     }
 }

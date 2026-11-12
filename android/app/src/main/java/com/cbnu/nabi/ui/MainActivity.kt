@@ -15,7 +15,9 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.Toast
 import com.cbnu.nabi.R
 import com.cbnu.nabi.data.ApiClient
 import com.cbnu.nabi.data.Prefs
@@ -53,6 +55,7 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        CatPresence.install(application)
         prefs = Prefs(this)
         api = ApiClient(prefs)
         currentTab = savedInstanceState?.getString(KEY_TAB)
@@ -99,6 +102,16 @@ class MainActivity : Activity() {
     }
 
     /** Home loaded the user state (cat name etc.); refresh what the profile shows. */
+    /** "기록하기" on the home analysis card. The sleep record sheet (FR-03) comes in the next commit. */
+    fun openSleepRecord() {
+        Toast.makeText(this, "수면 기록 화면을 준비 중이에요", Toast.LENGTH_SHORT).show()
+    }
+
+    /** The overlay switch in 마이페이지 changed: let the home room take or give back the cat. */
+    fun onOverlayChanged() {
+        homePanel?.onOverlayChanged()
+    }
+
     fun onUserStateLoaded() {
         profilePanel?.update()
     }
@@ -138,8 +151,12 @@ class MainActivity : Activity() {
             it.detach()
             it.visibility = View.VISIBLE
             // Phone: leave room so the floating tab bar never covers the end of a page.
-            it.setPadding(0, 0, 0, if (tablet) 0 else dp(NAV_HEIGHT_DP + NAV_BOTTOM_DP + 12))
-            (it as? ViewGroup)?.clipToPadding = false
+            // Phone: scrolling pages leave room so the floating tab bar never covers their end.
+            // The home room draws edge to edge behind the bar on purpose (Figma).
+            if (it is ScrollView) {
+                it.setPadding(0, 0, 0, if (tablet) 0 else dp(NAV_HEIGHT_DP + NAV_BOTTOM_DP + 12))
+                it.clipToPadding = false
+            }
         }
 
         return if (tablet) buildThreePane() else buildTabs()

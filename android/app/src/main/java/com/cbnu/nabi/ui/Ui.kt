@@ -71,6 +71,22 @@ fun Activity.cardBg(
     if (stroke != null) setStroke(dp(1), stroke)
 }
 
+/** A TextView in the Figma type style: Jua when [title], otherwise Gowun Dodum (bold if asked). */
+fun Activity.label(
+    text: CharSequence = "",
+    sizeSp: Float = 14f,
+    color: Int = Palette.ink,
+    bold: Boolean = false,
+    title: Boolean = false,
+): TextView = TextView(this).apply {
+    this.text = text
+    textSize = sizeSp
+    setTextColor(color)
+    typeface = if (title) Fonts.title(this@label)
+    else Typeface.create(Fonts.body(this@label), if (bold) Typeface.BOLD else Typeface.NORMAL)
+    includeFontPadding = false
+}
+
 /** A tinted vector icon from res/drawable/ic_*.xml (generated from the Figma icons). */
 fun Activity.icon(res: Int, color: Int, sizeDp: Int = 24): ImageView = ImageView(this).apply {
     setImageResource(res)
