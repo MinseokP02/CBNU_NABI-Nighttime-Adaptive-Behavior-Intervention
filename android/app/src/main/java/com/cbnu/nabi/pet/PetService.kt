@@ -11,6 +11,7 @@ import android.content.pm.ServiceInfo
 import android.content.res.Configuration
 import android.graphics.PixelFormat
 import android.graphics.Point
+import android.graphics.Rect
 import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Handler
@@ -90,6 +91,40 @@ class PetService : Service(), PetHost {
             if (!isRunning) return
             context.startService(Intent(context, PetService::class.java).setAction(ACTION_SYNC))
         }
+
+        @Volatile
+        private var instance: PetService? = null
+
+        /**
+         * Where the cat's body is on screen (touch box, screen px), or null when the overlay is off.
+         * The NABI app uses it to tell whether the cat is standing on the room floor when the app opens.
+         */
+        @Volatile
+        var catBounds: Rect? = null
+            private set
+
+        /**
+         * Hide or show the overlay cat while the NABI app is open — e.g. when the cat has walked into
+         * the in-app room, or a keyboard / bottom sheet is open. The service keeps running.
+         */
+        fun setHiddenInApp(hidden: Boolean) {
+            val s = instance ?: return
+            s.main.post { s.applyHiddenInApp(hidden) }
+        }
+    }
+
+    private var hiddenInApp = false
+
+    private fun applyHiddenInApp(hidden: Boolean) {
+        if (hidden == hiddenInApp) return
+        hiddenInApp = hidden
+        cat?.visibility = if (hidden) View.INVISIBLE else View.VISIBLE
+        val tv = touch ?: return
+        // A hidden cat must not swallow taps meant for the app underneath.
+        touchLp.flags = if (hidden) touchLp.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+        else touchLp.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
+        tv.visibility = if (hidden) View.GONE else View.VISIBLE
+        runCatching { wm.updateViewLayout(tv, touchLp) }
     }
 
     private lateinit var wm: WindowManager
@@ -129,6 +164,7 @@ class PetService : Service(), PetHost {
 
         if (!Settings.canDrawOverlays(this)) { stopSelf(); return }
         addWindows()
+        instance = this
         isRunning = true
         main.postDelayed(poll, 1500) // first sync shortly after the cat appears
     }
@@ -153,6 +189,8 @@ class PetService : Service(), PetHost {
 
     override fun onDestroy() {
         isRunning = false
+        if (instance === this) instance = null
+        catBounds = null
         main.removeCallbacksAndMessages(null)
         io.shutdownNow()
         cat?.let { runCatching { wm.removeView(it) } }
@@ -241,6 +279,7 @@ class PetService : Service(), PetHost {
             dispLp.x = dispX; dispLp.y = dispY
             runCatching { wm.updateViewLayout(c, dispLp) }
         }
+        catBounds = Rect(tx, ty, tx + tw, ty + th)
         if (touchLp.x != tx || touchLp.y != ty || touchLp.width != tw || touchLp.height != th) {
             touchLp.x = tx; touchLp.y = ty; touchLp.width = tw; touchLp.height = th
             runCatching { wm.updateViewLayout(tv, touchLp) }
