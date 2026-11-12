@@ -65,4 +65,31 @@ object ShopStore {
         if (!isOwned(c, p.id)) return false
         return sp(c).edit().putString(K_EQUIP + slot.name, p.id).commit()
     }
+
+    // ---------------- 방 꾸미기 (user-arranged placement) ----------------
+    /**
+     * Where the user put an item, as fractions of the room so it looks the same on any screen:
+     * [cx] = horizontal centre / room width, [bottom] = bottom edge / room height,
+     * [width] = item width / room width.
+     */
+    data class Placement(val cx: Float, val bottom: Float, val width: Float)
+
+    private const val K_PLACE = "place_"
+
+    /** Null → the Figma default position. */
+    fun placement(c: Context, slot: Slot): Placement? =
+        sp(c).getString(K_PLACE + slot.name, null)?.split(",")?.mapNotNull { it.toFloatOrNull() }
+            ?.takeIf { it.size == 3 }?.let { Placement(it[0], it[1], it[2]) }
+
+    fun savePlacements(c: Context, all: Map<Slot, Placement>): Boolean {
+        val e = sp(c).edit()
+        all.forEach { (slot, p) -> e.putString(K_PLACE + slot.name, "${p.cx},${p.bottom},${p.width}") }
+        return e.commit()
+    }
+
+    fun clearPlacements(c: Context): Boolean {
+        val e = sp(c).edit()
+        Slot.values().forEach { e.remove(K_PLACE + it.name) }
+        return e.commit()
+    }
 }

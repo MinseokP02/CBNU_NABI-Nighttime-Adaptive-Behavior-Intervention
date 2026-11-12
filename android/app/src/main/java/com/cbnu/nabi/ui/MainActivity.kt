@@ -52,6 +52,7 @@ class MainActivity : Activity() {
     private var currentTab = Tab.HOME
     private val tabPanes = mutableMapOf<Tab, View>()
     private val tabButtons = mutableMapOf<Tab, LinearLayout>()
+    private var tabBar: View? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -91,10 +92,25 @@ class MainActivity : Activity() {
         render()
     }
 
-    /** Back from a 마이페이지 sub-page returns to its main page before leaving the app. */
+    /** 상점 › 내 아이템 › 방 꾸미기 comes back here with [EXTRA_DECORATE]. */
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        if (intent.getBooleanExtra(EXTRA_DECORATE, false) && prefs.loggedIn) {
+            if (tabButtons.isNotEmpty()) selectTab(Tab.HOME)
+            homePanel?.enterDecorate()
+        }
+    }
+
+    /** Hide the floating tab bar while decorating the room (phone only). */
+    fun setTabBarVisible(visible: Boolean) {
+        tabBar?.visibility = if (visible) View.VISIBLE else View.GONE
+    }
+
+    /** Back from a 마이페이지 sub-page or the decorate mode returns before leaving the app. */
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
         if (profilePanel?.handleBack() == true) return
+        if (homePanel?.handleBack() == true) return
         @Suppress("DEPRECATION")
         super.onBackPressed()
     }
@@ -184,6 +200,7 @@ class MainActivity : Activity() {
     private fun isTablet(): Boolean = resources.configuration.smallestScreenWidthDp >= TABLET_MIN_DP
 
     private fun buildThreePane(): View {
+        tabBar = null
         val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         Tab.values().forEachIndexed { i, tab ->
             if (i > 0) row.addView(divider(), LinearLayout.LayoutParams(dp(1), LinearLayout.LayoutParams.MATCH_PARENT))
@@ -208,6 +225,7 @@ class MainActivity : Activity() {
             elevation = dp(6).toFloat()
         }
         tabButtons.clear()
+        tabBar = bar
         for (tab in Tab.values()) {
             val label = TextView(this).apply {
                 text = tab.label
@@ -250,6 +268,7 @@ class MainActivity : Activity() {
     private fun divider() = View(this).apply { setBackgroundColor(Palette.divider) }
 
     companion object {
+        const val EXTRA_DECORATE = "decorate"
         private const val KEY_TAB = "tab"
         private const val TABLET_MIN_DP = 600
         private const val NAV_HEIGHT_DP = 64

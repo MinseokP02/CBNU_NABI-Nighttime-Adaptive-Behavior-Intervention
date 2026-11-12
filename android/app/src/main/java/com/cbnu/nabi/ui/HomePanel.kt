@@ -55,6 +55,12 @@ class HomePanel(private val activity: MainActivity) {
     private var missions: List<Mission> = emptyList()
     private var missionSheet: BottomSheet? = null
 
+    private lateinit var top: LinearLayout
+    private lateinit var fab: View
+    private var decorator: RoomDecorator? = null
+    private val itemViews: Map<ShopStore.Slot, ImageView>
+        get() = mapOf(ShopStore.Slot.RUG to rug, ShopStore.Slot.TOWER to tower, ShopStore.Slot.PLANT to plant)
+
     private val clock = Handler(Looper.getMainLooper())
     private val tick = object : Runnable {
         override fun run() { updateScene(); clock.postDelayed(this, 60_000) }
@@ -71,13 +77,14 @@ class HomePanel(private val activity: MainActivity) {
         root.addView(hint, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(floor, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0))
 
-        val top = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
+        top = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
         top.addView(buildHeader())
         top.addView(buildAnalysisCard(), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
             .apply { setMargins(activity.dp(16), activity.dp(4), activity.dp(16), 0) })
         root.addView(top, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
-        root.addView(buildCallFab(), FrameLayout.LayoutParams(activity.dp(54), activity.dp(54)).apply {
+        fab = buildCallFab()
+        root.addView(fab, FrameLayout.LayoutParams(activity.dp(54), activity.dp(54)).apply {
             gravity = Gravity.BOTTOM or Gravity.END
             setMargins(0, 0, activity.dp(12), activity.dp(92))
         })
@@ -394,8 +401,69 @@ class HomePanel(private val activity: MainActivity) {
             gravity = Gravity.BOTTOM
             bottomMargin = activity.dp(RUG_BOTTOM_DP - 8)
         }
+        // 방 꾸미기: where the user put things overrides the Figma defaults.
+        for ((slot, v) in itemViews) ShopStore.placement(activity, slot)?.let { placeItem(v, it, w, h) }
         root.requestLayout()
         floor.post { roomCat.onFloorResized() }
+    }
+
+    /** Lay an item out from a room-fraction [ShopStore.Placement] (bottom-centre anchored). */
+    private fun placeItem(v: ImageView, p: ShopStore.Placement, w: Int, h: Int) {
+        val itemW = (p.width * w).toInt()
+        val itemH = (itemW * aspect(v)).toInt()
+        v.layoutParams = (v.layoutParams as FrameLayout.LayoutParams).apply {
+            width = itemW; height = itemH
+            gravity = Gravity.TOP or Gravity.START
+            leftMargin = (p.cx * w).toInt() - itemW / 2
+            topMargin = (p.bottom * h).toInt() - itemH
+            rightMargin = 0; bottomMargin = 0
+        }
+    }
+
+    // ---------------- 방 꾸미기 mode ----------------
+    /** Opened from 상점 › 내 아이템 › 방 꾸미기. Hides everything but the room while arranging. */
+    fun enterDecorate() {
+        if (decorator != null) return
+        if (root.width == 0) { root.post { enterDecorate() }; return }
+        top.visibility = View.GONE
+        fab.visibility = View.GONE
+        hint.visibility = View.GONE
+        roomCat.hide()
+        activity.setTabBarVisible(false)
+        val d = RoomDecorator(activity, root, itemViews.filterValues { it.visibility == View.VISIBLE }, ::aspect,
+            apply = { slot, p -> placeItem(itemViews.getValue(slot), p, root.width, root.height) },
+            onReset = { after ->
+                ShopStore.clearPlacements(activity)
+                layoutRoom(root.width, root.height)
+                root.post(after)
+            },
+            onFinish = { saved ->
+                if (saved != null && !ShopStore.savePlacements(activity, saved)) {
+                    Toast.makeText(activity, "배치를 저장하지 못했어요", Toast.LENGTH_SHORT).show()
+                }
+                exitDecorate()
+            })
+        decorator = d
+        root.addView(d, matchParent())
+    }
+
+    private fun exitDecorate() {
+        decorator?.let { root.removeView(it) }
+        decorator = null
+        itemViews.values.forEach { it.scaleX = 1f; it.scaleY = 1f; it.translationY = 0f }
+        top.visibility = View.VISIBLE
+        fab.visibility = View.VISIBLE
+        hint.visibility = View.VISIBLE
+        activity.setTabBarVisible(true)
+        layoutRoom(root.width, root.height)
+        updateCat()
+    }
+
+    /** System back while decorating: leave without saving. */
+    fun handleBack(): Boolean {
+        if (decorator == null) return false
+        exitDecorate()
+        return true
     }
 
     /** height / width of the image currently shown (falls back to 1:1). */
@@ -420,7 +488,7 @@ class HomePanel(private val activity: MainActivity) {
 
     /** Show or remove the room cat depending on [CatPresence]. It only comes in when called. */
     private fun updateCat() {
-        if (!root.isAttachedToWindow) return
+        if (!root.isAttachedToWindow || decorator != null) return
         if (CatPresence.showInRoom) roomCat.show() else roomCat.hide()
         hint.text = if (CatPresence.showInRoom) "나비를 터치해 보세요" else "나비는 지금 밖에서 놀고 있어요 · 불러 보세요"
     }
@@ -442,7 +510,7 @@ class HomePanel(private val activity: MainActivity) {
     /** Called on resume: reload state + missions, refresh coins and decide where the cat is. */
     fun refresh() {
         coinText.text = ShopStore.coins(activity).toString()
-        updateFurniture()
+        if (decorator == null) updateFurniture()
         root.post { updateCat() }
         if (lastState == null) showAnalysis(null, null)
         activity.bg({ activity.api.userState() to activity.api.activeMissions() }) { r ->

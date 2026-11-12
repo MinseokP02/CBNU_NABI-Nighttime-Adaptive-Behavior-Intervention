@@ -84,6 +84,7 @@ class ShopActivity : Activity() {
             val items = ShopStore.products.filter { filter == null || it.category == filter }
             content.addView(grid(items), lp(top = 10))
         } else {
+            content.addView(decorateButton(), lp(top = 12, height = 48))
             content.addView(chips(OwnedFilter.values().map { it.label to it }, ownedFilter) { ownedFilter = it; render() }, lp(top = 10))
             content.addView(ownedList(), lp(top = 10))
         }
@@ -247,6 +248,23 @@ class ShopActivity : Activity() {
     }
 
     // ---------------- 내 아이템 (FR-06-05) ----------------
+    /** "방 꾸미기": back to the home room in arrange mode (move / resize the equipped furniture). */
+    private fun decorateButton() = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER
+        background = cardBg(Palette.lavenderSoft, 16, Color.parseColor("#DCCDEB"))
+        addView(icon(R.drawable.ic_sparkle, Color.parseColor("#71568D"), 18))
+        addView(label("방 꾸미기", 14f, Color.parseColor("#71568D"), bold = true),
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { leftMargin = dp(7) })
+        contentDescription = "방 꾸미기. 장착한 가구의 위치와 크기를 바꿔요"
+        setOnClickListener {
+            startActivity(android.content.Intent(this@ShopActivity, MainActivity::class.java)
+                .addFlags(android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP or android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                .putExtra(MainActivity.EXTRA_DECORATE, true))
+            finish()
+        }
+    }
+
     private fun ownedList(): View {
         val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         val items = listOf(ShopStore.defaultRug) + ShopStore.products.filter { ShopStore.isOwned(this, it.id) }
