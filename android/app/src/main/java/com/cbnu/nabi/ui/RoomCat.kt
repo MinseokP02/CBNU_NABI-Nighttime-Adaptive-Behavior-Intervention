@@ -57,6 +57,12 @@ class RoomCat(private val activity: Activity, private val floor: FrameLayout) : 
 
     fun react(action: CatAction, line: String?) = cat?.applyAction(action, line)
 
+    /** Top-centre of the cat's body in [floor] coordinates (for placing a hint above it), or null. */
+    fun anchor(): Pair<Float, Float>? {
+        val t = touch ?: return null
+        return (t.translationX + t.layoutParams.width / 2f) to t.translationY
+    }
+
     // ---- PetHost ----
     override fun place(dispX: Int, dispY: Int, tx: Int, ty: Int, tw: Int, th: Int) {
         cat?.apply { translationX = dispX.toFloat(); translationY = dispY.toFloat() }

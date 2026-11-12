@@ -42,6 +42,12 @@ class HomePanel(private val activity: MainActivity) {
         setPadding(activity.dp(9), activity.dp(3), activity.dp(9), activity.dp(3))
         background = activity.rounded(Color.argb(153, 255, 249, 243), 999)
     }
+    /** Fixed note beside the 부르기 button while Nabi is out on the home screen. */
+    private val outHint = activity.label("나비는 지금 밖에서 놀고 있어요 · 불러 보세요", 11f, Color.argb(210, 74, 48, 39), bold = true).apply {
+        setPadding(activity.dp(11), activity.dp(6), activity.dp(11), activity.dp(6))
+        background = activity.cardBg(Color.argb(225, 255, 249, 243), 999, Color.argb(150, 185, 155, 137))
+        visibility = View.GONE
+    }
     private val floor = FrameLayout(activity).apply { clipChildren = false; clipToPadding = false }
     private val roomCat = RoomCat(activity, floor)
 
@@ -74,7 +80,9 @@ class HomePanel(private val activity: MainActivity) {
         root.addView(rug, FrameLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(plant, FrameLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(tower, FrameLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT))
-        root.addView(hint, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        root.addView(hint, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            .apply { gravity = Gravity.TOP or Gravity.START })
+        hint.alpha = 0f
         root.addView(floor, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0))
 
         top = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
@@ -83,6 +91,10 @@ class HomePanel(private val activity: MainActivity) {
             .apply { setMargins(activity.dp(16), activity.dp(4), activity.dp(16), 0) })
         root.addView(top, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
+        root.addView(outHint, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+            gravity = Gravity.BOTTOM or Gravity.END
+            setMargins(activity.dp(16), 0, activity.dp(12 + 54 + 8), activity.dp(92 + 15))
+        })
         fab = buildCallFab()
         root.addView(fab, FrameLayout.LayoutParams(activity.dp(54), activity.dp(54)).apply {
             gravity = Gravity.BOTTOM or Gravity.END
@@ -94,7 +106,7 @@ class HomePanel(private val activity: MainActivity) {
         }
         root.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
             override fun onViewAttachedToWindow(v: View) { clock.removeCallbacks(tick); tick.run() }
-            override fun onViewDetachedFromWindow(v: View) { clock.removeCallbacks(tick) }
+            override fun onViewDetachedFromWindow(v: View) { clock.removeCallbacks(tick); clock.removeCallbacks(touchHintTask) }
         })
         CatPresence.onChanged = { updateCat() }
         CatPresence.roomReact = { action, line -> roomCat.react(action, line) }
@@ -108,7 +120,7 @@ class HomePanel(private val activity: MainActivity) {
     private fun buildHeader(): View {
         val row = LinearLayout(activity).apply {
             orientation = LinearLayout.HORIZONTAL
-            setPadding(activity.dp(16), activity.dp(10), activity.dp(16), activity.dp(8))
+            setPadding(activity.dp(16), activity.dp(24), activity.dp(16), activity.dp(8))
         }
         val titles = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
         val titleRow = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
@@ -256,7 +268,12 @@ class HomePanel(private val activity: MainActivity) {
 
     /** Figma summary once today's diary exists: total sleep on the left, efficiency + satisfaction on the right. */
     private fun showSummary(e: DiaryEntry, state: UserState?) {
-        val row = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        // Both columns start on the same top line, so "총 수면시간" sits level with "수면 효율".
+        val row = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.TOP
+            setPadding(0, activity.dp(14), 0, 0)
+        }
         val left = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(activity.dp(14), 0, activity.dp(8), 0)
@@ -266,7 +283,7 @@ class HomePanel(private val activity: MainActivity) {
         head.addView(activity.label("총 수면시간", 11f, Palette.muted, bold = true),
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { leftMargin = activity.dp(5) })
         left.addView(head)
-        left.addView(activity.label(formatDuration(e.totalSleepMin), 21f, title = true).apply { setPadding(0, activity.dp(6), 0, 0) })
+        left.addView(activity.label(formatDuration(e.totalSleepMin), 21f, title = true).apply { setPadding(0, activity.dp(5), 0, 0) })
         // FR-04-02: the personal baseline is still being built — say so next to the numbers.
         if (state != null && state.baselineStatus != "ready") {
             left.addView(activity.label("기준선 수집 중 · 유효 ${state.baselineValidDays}일", 9.5f, Palette.muted).apply {
@@ -275,7 +292,7 @@ class HomePanel(private val activity: MainActivity) {
         }
         row.addView(left, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 0.48f))
         row.addView(View(activity).apply { setBackgroundColor(Color.argb(51, 185, 155, 137)) },
-            LinearLayout.LayoutParams(activity.dp(1), activity.dp(60)))
+            LinearLayout.LayoutParams(activity.dp(1), activity.dp(58)))
         val right = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(activity.dp(14), 0, activity.dp(14), 0)
@@ -391,10 +408,6 @@ class HomePanel(private val activity: MainActivity) {
             gravity = Gravity.BOTTOM or Gravity.START
             leftMargin = activity.dp(15); bottomMargin = activity.dp(78)
         }
-        hint.layoutParams = (hint.layoutParams as FrameLayout.LayoutParams).apply {
-            gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
-            bottomMargin = activity.dp(RUG_BOTTOM_DP) + (rugH * 0.82f).toInt()
-        }
         // The cat's "screen": a band of floor around the rug. CatView keeps its feet between
         // 28% of this height from the top and 28dp above the bottom.
         floor.layoutParams = (floor.layoutParams as FrameLayout.LayoutParams).apply {
@@ -429,6 +442,8 @@ class HomePanel(private val activity: MainActivity) {
         top.visibility = View.GONE
         fab.visibility = View.GONE
         hint.visibility = View.GONE
+        outHint.visibility = View.GONE
+        clock.removeCallbacks(touchHintTask)
         roomCat.hide()
         activity.setTabBarVisible(false)
         val d = RoomDecorator(activity, root, itemViews.filterValues { it.visibility == View.VISIBLE }, ::aspect,
@@ -490,8 +505,43 @@ class HomePanel(private val activity: MainActivity) {
     /** Show or remove the room cat depending on [CatPresence]. It only comes in when called. */
     private fun updateCat() {
         if (!root.isAttachedToWindow || decorator != null) return
+        val wasShown = roomCat.isShown
         if (CatPresence.showInRoom) roomCat.show() else roomCat.hide()
-        hint.text = if (CatPresence.showInRoom) "나비를 터치해 보세요" else "나비는 지금 밖에서 놀고 있어요 · 불러 보세요"
+        outHint.visibility = if (CatPresence.showInRoom) View.GONE else View.VISIBLE
+        if (!CatPresence.showInRoom) { clock.removeCallbacks(touchHintTask); hint.animate().cancel(); hint.alpha = 0f }
+        else if (!wasShown) scheduleTouchHint(1_200) // the cat just came in
+    }
+
+    // ---------------- "나비를 터치해 보세요" (now and then, above the cat) ----------------
+    private var touchHintsLeft = 0
+    private val touchHintTask = Runnable { showTouchHint() }
+
+    /** At most twice per visit to home: shortly after arriving, and once more a little later. */
+    private fun startTouchHints() {
+        touchHintsLeft = 2
+        scheduleTouchHint(1_800)
+    }
+
+    private fun scheduleTouchHint(delayMs: Long) {
+        if (touchHintsLeft <= 0) return
+        clock.removeCallbacks(touchHintTask)
+        clock.postDelayed(touchHintTask, delayMs)
+    }
+
+    private fun showTouchHint() {
+        if (decorator != null || !CatPresence.showInRoom || !root.isAttachedToWindow || touchHintsLeft <= 0) return
+        val (ax, ay) = roomCat.anchor() ?: return
+        touchHintsLeft--
+        hint.text = "나비를 터치해 보세요"
+        hint.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED)
+        val x = (floor.left + ax - hint.measuredWidth / 2f).toInt().coerceIn(activity.dp(8), root.width - hint.measuredWidth - activity.dp(8))
+        val y = (floor.top + ay - hint.measuredHeight - activity.dp(10)).toInt().coerceAtLeast(activity.dp(8))
+        hint.layoutParams = (hint.layoutParams as FrameLayout.LayoutParams).apply { leftMargin = x; topMargin = y }
+        hint.translationY = activity.dp(4).toFloat()
+        hint.animate().alpha(1f).translationY(0f).setDuration(250).withEndAction {
+            hint.animate().alpha(0f).setStartDelay(2_600).setDuration(400).withEndAction { hint.animate().startDelay = 0 }.start()
+        }.start()
+        if (touchHintsLeft > 0) scheduleTouchHint((25_000..45_000).random().toLong())
     }
 
     /** Bottom-right "나비 부르기" button (user decision): calls the overlay cat in, or the room cat over. */
@@ -512,6 +562,7 @@ class HomePanel(private val activity: MainActivity) {
     fun refresh() {
         coinText.text = ShopStore.coins(activity).toString()
         if (decorator == null) updateFurniture()
+        startTouchHints()
         root.post { updateCat() }
         if (lastState == null) showAnalysis(null, null)
         activity.bg({ activity.api.userState() to activity.api.activeMissions() }) { r ->
