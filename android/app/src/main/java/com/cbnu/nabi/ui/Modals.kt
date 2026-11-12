@@ -23,16 +23,25 @@ object Modals {
      * Many phones (e.g. Galaxy S20+) don't support system window blur, so on Android 12+ the app's
      * own windows behind ([extraBehind] + the activity) are blurred directly with RenderEffect.
      */
-    fun center(activity: Activity, dialog: Dialog, extraBehind: List<View?> = emptyList()) {
+    fun center(activity: Activity, dialog: Dialog, extraBehind: List<View?> = emptyList(), stacked: Boolean = false) {
         dialog.window?.apply {
             setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
             setGravity(Gravity.CENTER)
             setWindowAnimations(android.R.style.Animation_Dialog)
             addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
-            setDimAmount(if (Build.VERSION.SDK_INT >= 31) 0.15f else 0.4f)
+            // A modal stacked on another one adds only a light dim/blur on top of what is already there.
+            setDimAmount(when {
+                stacked -> 0.06f
+                Build.VERSION.SDK_INT >= 31 -> 0.15f
+                else -> 0.4f
+            })
         }
         val behind = (listOf<View?>(activity.window.decorView) + extraBehind).filterNotNull()
-        dialog.setOnShowListener { behind.forEach(Blur::push) }
+        val extraRadius = if (stacked) 3f else 12f
+        dialog.setOnShowListener {
+            Blur.push(activity.window.decorView)
+            extraBehind.filterNotNull().forEach { Blur.push(it, extraRadius) }
+        }
         dialog.setOnDismissListener { behind.forEach(Blur::pop) }
     }
 
@@ -60,10 +69,10 @@ object Modals {
         return row
     }
 
-    fun show(activity: Activity, dialog: Dialog, content: View, extraBehind: List<View?> = emptyList()) {
+    fun show(activity: Activity, dialog: Dialog, content: View, extraBehind: List<View?> = emptyList(), stacked: Boolean = false) {
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
         dialog.setContentView(content)
-        center(activity, dialog, extraBehind)
+        center(activity, dialog, extraBehind, stacked)
         dialog.show()
         dialog.window?.setLayout(minOf(activity.dp(328), activity.resources.displayMetrics.widthPixels - activity.dp(32)),
             ViewGroup.LayoutParams.WRAP_CONTENT)

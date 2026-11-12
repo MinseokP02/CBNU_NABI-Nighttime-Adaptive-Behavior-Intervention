@@ -65,6 +65,7 @@ class MainActivity : Activity() {
             ?.let { name -> Tab.values().firstOrNull { it.name == name } } ?: Tab.HOME
 
         render()
+        if (savedInstanceState == null) showProposalFrom(intent)
 
         if (Build.VERSION.SDK_INT >= 33 &&
             checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
@@ -102,10 +103,51 @@ class MainActivity : Activity() {
     /** 상점 › 내 아이템 › 방 꾸미기 comes back here with [EXTRA_DECORATE]. */
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
+        showProposalFrom(intent)
         if (intent.getBooleanExtra(EXTRA_DECORATE, false) && prefs.loggedIn) {
             if (tabButtons.isNotEmpty()) selectTab(Tab.HOME)
             homePanel?.enterDecorate()
         }
+    }
+
+    // ---------------- 나비의 제안 (patent [0045]) ----------------
+    /**
+     * Entry point for the cat / intervention / API owners: show "나비의 제안" for [p].
+     * From outside an activity use [MissionProposals.open], which lands here.
+     */
+    fun showMissionProposal(p: MissionProposal) {
+        if (!prefs.loggedIn) return
+        MissionProposalModal(this, p) { response ->
+            MissionProposalStore(this, prefs.email).record(p, response)
+            if (response == ProposalResponse.ACCEPTED) when (p.kind.flow) {
+                ProposalFlow.TRACKABLE -> {
+                    Toast.makeText(this, "나의 미션에 추가했어요", Toast.LENGTH_SHORT).show()
+                    homePanel?.onMissionsChanged()
+                }
+                ProposalFlow.SLEEP_DIARY -> openSleepRecord()
+                ProposalFlow.NOTICE -> Unit // acknowledged only; brightness control is not done here
+            }
+        }.show()
+    }
+
+    /**
+     * Connection point to the permission settings (used when an AUTO mission can't read its data).
+     * For now this opens the app's system settings, like 마이페이지 › 데이터 접근 권한.
+     */
+    fun openPermissionSettings() {
+        startActivity(android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+            android.net.Uri.parse("package:$packageName")))
+    }
+
+    /** A mission's state changed (e.g. an AUTO check was reported): refresh 나의 미션 and the count. */
+    fun onMissionsChanged() {
+        homePanel?.onMissionsChanged()
+    }
+
+    private fun showProposalFrom(intent: android.content.Intent?) {
+        val p = MissionProposals.from(intent) ?: return
+        MissionProposals.clear(intent)
+        window.decorView.post { showMissionProposal(p) }
     }
 
     /** Hide the floating tab bar while decorating the room (phone only). */

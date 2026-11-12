@@ -182,6 +182,18 @@ class ProfilePanel(private val activity: MainActivity, private val onLogout: () 
         grid.addView(goalBox(R.drawable.ic_sun, Color.parseColor("#E8A33D"), "목표 기상 시각", s.goalWakeTime),
             LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { leftMargin = activity.dp(7) })
         goal.addView(grid)
+        // 추천 수면 일정 (patent [0042]) → centred modal; the goal edit above is unchanged.
+        goal.addView(LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(activity.dp(12), activity.dp(11), activity.dp(10), activity.dp(11))
+            background = activity.cardBg(Color.parseColor("#FFFCF9"), 14, Color.parseColor("#EADDD3"))
+            addView(activity.label("추천 수면 일정", 13f, bold = true),
+                LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { leftMargin = activity.dp(2) })
+            addView(chevron())
+            contentDescription = "추천 수면 일정 보기"
+            setOnClickListener { RecommendedScheduleModal(activity, onApplied = { show(Page.MAIN) }).show() }
+        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = activity.dp(9) })
         col.add(goal)
 
         // 초기 ISI 평가 결과 (FR-07-01)
@@ -381,6 +393,28 @@ class ProfilePanel(private val activity: MainActivity, private val onLogout: () 
         ServerSection(activity, devCol, "개발 설정 · 서버")
         dev.addView(devCol.root)
         col.add(dev)
+
+        // Debug builds only: open "나비의 제안" with example data to check the UI. Kept apart from
+        // real data (marked as previews, not saved, never shown automatically).
+        if (com.cbnu.nabi.BuildConfig.DEBUG) {
+            val preview = card()
+            preview.addView(activity.label("미션 제안 미리보기 (개발용)", 15f, title = true))
+            preview.addView(activity.label("실제 추천이 아닌 UI 확인용 예시예요.", 10.5f, Palette.muted).apply { setPadding(0, activity.dp(4), 0, activity.dp(4)) })
+            MissionProposalStore.previewSamples().forEach { p ->
+                preview.addView(activity.label("• ${p.title}", 12.5f, Palette.lavenderDeep, bold = true).apply {
+                    setPadding(0, activity.dp(9), 0, activity.dp(9))
+                    setOnClickListener { activity.showMissionProposal(p) }
+                })
+            }
+            preview.addView(activity.label("• 추천 수면 일정 (예시 데이터)", 12.5f, Palette.lavenderDeep, bold = true).apply {
+                setPadding(0, activity.dp(9), 0, activity.dp(9))
+                setOnClickListener {
+                    RecommendedScheduleModal(activity, onApplied = {}, previewSchedule = RecommendedSchedule(
+                        LocalTime.of(22, 45), LocalTime.of(7, 0), "현재 목표보다 취침 시각을 15분 앞당기는 제안이에요.", preview = true)).show()
+                }
+            })
+            col.add(preview)
+        }
 
         col.add(LinearLayout(activity).apply {
             orientation = LinearLayout.HORIZONTAL

@@ -302,24 +302,59 @@ class HomePanel(private val activity: MainActivity) {
 
     // ---------------- missions (FR-06-01, existing feature) ----------------
     private fun openMissions() {
-        val sheet = BottomSheet(activity, "오늘의 미션", "미션을 해내면 나비가 함께 기뻐해요.")
+        val sheet = BottomSheet(activity, "나의 미션", "수락한 미션을 확인하고, 해냈다면 완료해 주세요.")
         missionSheet = sheet
+        sheet.onDismiss = { missionSheet = null }
         renderMissions(sheet.body)
         sheet.show()
     }
 
+    /** A proposal was accepted / completed elsewhere: refresh the count and an open sheet. */
+    fun onMissionsChanged() {
+        updateMissionCount()
+        missionSheet?.let { renderMissions(it.body) }
+    }
+
+    private fun proposalStore() = MissionProposalStore(activity, activity.prefs.email)
+
+    private fun updateMissionCount() {
+        val n = missions.size + proposalStore().accepted().count { !it.done }
+        missionText.text = if (n == 0) "미션" else "미션 $n"
+    }
+
+    /**
+     * 나의 미션: accepted 나비의 제안 (local, 진행 중 → 완료) and the server's active missions
+     * (existing behaviour: 완료했어요 → POST /missions/{id}/complete).
+     */
     private fun renderMissions(body: Column) {
         body.root.removeAllViews()
-        if (missions.isEmpty()) {
-            body.text("지금은 진행 중인 미션이 없어요", 14f, 0.7f)
+        val accepted = proposalStore().accepted().sortedBy { it.done } // 진행 중 first
+        if (missions.isEmpty() && accepted.isEmpty()) {
+            body.add(activity.label("아직 진행 중인 미션이 없어요.\n나비가 제안한 미션을 수락하면 여기에서 볼 수 있어요.", 13f, Palette.muted).apply {
+                gravity = Gravity.CENTER
+                setLineSpacing(activity.dp(3).toFloat(), 1f)
+                setPadding(0, activity.dp(18), 0, activity.dp(18))
+            })
             return
         }
+        for (m in accepted) {
+            val card = missionCard(m.proposal.title, m.proposal.description, done = m.done, iconRes = m.proposal.kind.iconRes)
+            if (m.proposal.preview) card.text("UI 미리보기", 11f, 0.6f)
+            if (!m.done && m.proposal.verify == VerifyMode.AUTO) {
+                // Confirmed from data only: no 완료했어요 button, and never "checking" unless it is.
+                card.add(autoCheckNote(m))
+            } else if (!m.done) {
+                val btn = card.add(Button(activity).apply { text = "완료했어요" }, matchWidth = false)
+                btn.setOnClickListener {
+                    proposalStore().complete(m.proposal)
+                    Toast.makeText(activity, "미션을 완료했어요", Toast.LENGTH_SHORT).show()
+                    onMissionsChanged()
+                }
+            }
+            body.add(card.root)
+        }
         for (m in missions) {
-            val card = Column(activity, 6)
-            card.root.setPadding(activity.dp(16), activity.dp(8), activity.dp(16), activity.dp(14))
-            card.root.background = activity.cardBg(radiusDp = 18)
-            card.add(activity.label(m.title, 16f, title = true))
-            card.text(m.description, 14f)
+            val card = missionCard(m.title, m.description, done = false, iconRes = null)
             card.text("보상 EXP ${m.rewardExp} · 기한 ${m.deadline.take(16).replace('T', ' ')}", 12f, 0.7f)
             val btn = card.add(Button(activity).apply { text = "완료했어요" }, matchWidth = false)
             btn.setOnClickListener {
@@ -338,6 +373,57 @@ class HomePanel(private val activity: MainActivity) {
             }
             body.add(card.root)
         }
+    }
+
+    /** Status line for an AUTO mission in progress, matching what the data owner reported. */
+    private fun autoCheckNote(m: AcceptedMission): View {
+        val (iconRes, text) = when (m.autoCheck) {
+            AutoCheck.NOT_CONNECTED -> R.drawable.ic_info to "활동 데이터가 연결되면 자동으로 완료를 확인해요."
+            AutoCheck.CHECKING -> R.drawable.ic_clock to "자동으로 완료를 확인하고 있어요."
+            AutoCheck.UNAVAILABLE -> R.drawable.ic_shield to "활동 데이터를 확인할 수 없어요."
+        }
+        val box = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(activity.dp(12), activity.dp(10), activity.dp(12), activity.dp(10))
+            background = activity.rounded(Color.parseColor("#F6EFF8"), 12)
+        }
+        val row = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        row.addView(activity.icon(iconRes, Palette.lavenderDeep, 15))
+        row.addView(activity.label(text, 12f, Palette.lavenderDeep, bold = true),
+            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { leftMargin = activity.dp(7) })
+        box.addView(row)
+        // Real progress only when the data owner provided it.
+        if (m.autoCheck == AutoCheck.CHECKING && m.progress != null) {
+            box.addView(activity.label(m.progress, 11.5f, Palette.ink).apply { setPadding(activity.dp(22), activity.dp(5), 0, 0) })
+        }
+        // Permission/data problem: only a way to the permission settings, no manual-complete fallback.
+        if (m.autoCheck == AutoCheck.UNAVAILABLE) {
+            box.addView(activity.label("권한 설정 확인하기 ›", 11.5f, Color.parseColor("#8467A8"), bold = true).apply {
+                setPadding(activity.dp(22), activity.dp(8), 0, activity.dp(2))
+                setOnClickListener { activity.openPermissionSettings() }
+            })
+        }
+        return box
+    }
+
+    /** Same card as before, plus a 진행 중 / 완료 badge next to the title (and the kind icon if known). */
+    private fun missionCard(title: String, description: String, done: Boolean, iconRes: Int?): Column {
+        val card = Column(activity, 6)
+        card.root.setPadding(activity.dp(16), activity.dp(8), activity.dp(16), activity.dp(14))
+        card.root.background = activity.cardBg(radiusDp = 18)
+        val head = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        if (iconRes != null) head.addView(activity.icon(iconRes, Palette.lavender, 18).apply {
+            (layoutParams as LinearLayout.LayoutParams).rightMargin = activity.dp(6)
+        })
+        head.addView(activity.label(title, 16f, title = true), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        head.addView(activity.label(if (done) "완료" else "진행 중", 10.5f,
+            if (done) Palette.muted else Palette.lavenderDeep, bold = true).apply {
+            setPadding(activity.dp(9), activity.dp(4), activity.dp(9), activity.dp(4))
+            background = activity.rounded(if (done) Color.parseColor("#F1EAE4") else Palette.lavenderSoft, 999)
+        })
+        card.add(head)
+        card.text(description, 14f, if (done) 0.6f else 1f)
+        return card
     }
 
     /** Let whichever cat is visible react (room cat if it is here, otherwise the overlay). */
@@ -585,6 +671,7 @@ class HomePanel(private val activity: MainActivity) {
     fun refresh() {
         coinText.text = ShopStore.coins(activity).toString()
         if (decorator == null) updateFurniture()
+        updateMissionCount() // accepted proposals count even if the server is unreachable
         startTouchHints()
         root.post { updateCat() }
         if (lastState == null) showAnalysis(null, null)
@@ -595,7 +682,7 @@ class HomePanel(private val activity: MainActivity) {
                 showAnalysis(state, null)
                 analysis?.render(state)
                 missions = list
-                missionText.text = if (list.isEmpty()) "미션" else "미션 ${list.size}"
+                updateMissionCount()
                 missionSheet?.let { renderMissions(it.body) }
                 activity.onUserStateLoaded(state)
             }.onFailure {

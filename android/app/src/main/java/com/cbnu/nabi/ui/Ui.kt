@@ -81,12 +81,13 @@ object Fonts {
 object Blur {
     private val counts = java.util.WeakHashMap<View, Int>()
 
-    fun push(v: View?) {
+    /** [radiusDp]: 12 for a normal modal/sheet; lower for a modal stacked on another one. */
+    fun push(v: View?, radiusDp: Float = 12f) {
         if (v == null || android.os.Build.VERSION.SDK_INT < 31) return
         val n = (counts[v] ?: 0) + 1
         counts[v] = n
         if (n == 1) {
-            val r = 12f * v.resources.displayMetrics.density
+            val r = radiusDp * v.resources.displayMetrics.density
             v.setRenderEffect(android.graphics.RenderEffect.createBlurEffect(r, r, android.graphics.Shader.TileMode.CLAMP))
         }
     }
