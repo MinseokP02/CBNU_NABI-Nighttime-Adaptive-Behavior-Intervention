@@ -92,6 +92,8 @@ class MainActivity : Activity() {
 
     override fun onDestroy() {
         if (current?.get() === this) current = null
+        // Destroyed mid-tutorial (e.g. while the preview chat was on top): don't leave later chats read-only.
+        if (tutorial != null) NabiTutorial.chatPreview = false
         super.onDestroy()
     }
 
@@ -184,9 +186,10 @@ class MainActivity : Activity() {
         val from = currentTab
         tutorial = TutorialOverlay(this, NabiTutorial.steps()) {
             tutorial = null
-            homePanel?.takeIf { it.tutorialAnalysis != null }?.closeAnalysis()
+            homePanel?.closeAnalysis()
             TutorialPrefs.markDone(this) // finished or skipped; watching again never resets it
-            if (tabButtons.isNotEmpty()) selectTab(if (returnHere) from else Tab.HOME)
+            // Ended by a logout (showLogin): the login screen is up, so keep currentTab = HOME.
+            if (prefs.loggedIn && tabButtons.isNotEmpty()) selectTab(if (returnHere) from else Tab.HOME)
         }.also { it.start() }
     }
 
@@ -195,7 +198,7 @@ class MainActivity : Activity() {
         if (s == Screen.PROFILE) profilePanel?.showMainForTutorial()
         if (tabButtons.isNotEmpty()) selectTab(when (s) { Screen.HOME -> Tab.HOME; Screen.DIARY -> Tab.SLEEP; Screen.PROFILE -> Tab.PROFILE })
         if (analysisSheet) homePanel?.openAnalysisForTutorial { tutorial?.back() }
-        else if (homePanel?.tutorialAnalysis != null) homePanel?.closeAnalysis()
+        else homePanel?.closeAnalysis()
     }
 
     /** Release builds only: the first time the main screens are ready on this device. */
@@ -212,6 +215,7 @@ class MainActivity : Activity() {
     /** Go back to the login screen and drop the logged-in panels so the next user starts clean. */
     fun showLogin() {
         tutorial?.end()
+        homePanel?.closeAnalysis() // the sheet is a separate window: it would stay over the login screen
         sleepPanel = null
         homePanel = null
         profilePanel = null

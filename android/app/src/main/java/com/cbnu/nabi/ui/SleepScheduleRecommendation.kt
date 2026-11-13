@@ -1,6 +1,7 @@
 package com.cbnu.nabi.ui
 
 import android.content.Context
+import com.cbnu.nabi.BuildConfig
 import java.time.LocalTime
 
 /*
@@ -29,13 +30,21 @@ sealed class RecommendationResult {
 
 object SleepScheduleRecommendations {
 
+    /** UI sample (marked "UI 미리보기"; applying it never saves). Used only in debug builds. */
+    val previewSample = RecommendedSchedule(
+        LocalTime.of(22, 45), LocalTime.of(7, 0), "현재 목표보다 취침 시각을 15분 앞당기는 제안이에요.", preview = true)
+
     /**
      * Where recommendations come from. Runs on a background thread, so it may call the network.
-     * Default: no data source → None. The schedule owner replaces it, e.g.
-     * `SleepScheduleRecommendations.provider = { ctx -> /* GET ... */ RecommendationResult.Ready(...) }`.
+     * Default until the real logic is connected: debug builds show [previewSample] (for demos),
+     * release builds show the empty state (None). The schedule owner replaces it, e.g.
+     * `SleepScheduleRecommendations.provider = { ctx -> /* GET ... */ RecommendationResult.Ready(...) }`
+     * — from then on debug builds use the real logic too.
      */
     @Volatile
-    var provider: (Context) -> RecommendationResult = { RecommendationResult.None }
+    var provider: (Context) -> RecommendationResult = {
+        if (BuildConfig.DEBUG) RecommendationResult.Ready(previewSample) else RecommendationResult.None
+    }
 
     /**
      * How "적용하기" saves. Default: the existing local sleep-goal save. Returns true only when it

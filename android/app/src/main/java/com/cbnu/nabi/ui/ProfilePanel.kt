@@ -40,10 +40,8 @@ class ProfilePanel(private val activity: MainActivity, private val onLogout: () 
     /** Re-read stored values and permissions (on resume, after the home state loads). */
     fun update() = show(page)
 
-    // Views the tutorial points at (rebuilt with the page, so always read them fresh).
+    // The view the tutorial points at (rebuilt with the page, so always read it fresh).
     var goalCard: View? = null
-        private set
-    var helpRow: View? = null
         private set
 
     /** Tutorial: make sure the main page (수면 목표, 도움말) is the one showing. */
@@ -250,9 +248,8 @@ class ProfilePanel(private val activity: MainActivity, private val onLogout: () 
             settingRow(R.drawable.ic_heart, "만질 때 진동 반응", "골골송·하악질을 진동으로 느껴요.", hapticToggle),
             settingRow(R.drawable.ic_shield, "데이터 접근 권한", "건강·활동·사용 정보 권한을 확인해요.", chevron()) { openPermissions() },
             settingRow(R.drawable.ic_bell, "알림 설정", "수면 및 활동 안내를 설정해요.", chevron()) { show(Page.NOTIFICATIONS) },
-            settingRow(R.drawable.ic_help, "도움말", "나비 사용법을 튜토리얼로 다시 볼 수 있어요.", chevron()) { activity.startTutorial() }
-                .also { helpRow = it },
-        ),LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = activity.dp(10) })
+            settingRow(R.drawable.ic_help, "도움말", "나비 사용법을 튜토리얼로 다시 볼 수 있어요.", chevron()) { activity.startTutorial() },
+        ), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = activity.dp(10) })
         col.add(settings)
     }
 
@@ -421,8 +418,7 @@ class ProfilePanel(private val activity: MainActivity, private val onLogout: () 
             preview.addView(activity.label("• 추천 수면 일정 (예시 데이터)", 12.5f, Palette.lavenderDeep, bold = true).apply {
                 setPadding(0, activity.dp(9), 0, activity.dp(9))
                 setOnClickListener {
-                    RecommendedScheduleModal(activity, onApplied = {}, previewSchedule = RecommendedSchedule(
-                        LocalTime.of(22, 45), LocalTime.of(7, 0), "현재 목표보다 취침 시각을 15분 앞당기는 제안이에요.", preview = true)).show()
+                    RecommendedScheduleModal(activity, onApplied = {}, previewSchedule = SleepScheduleRecommendations.previewSample).show()
                 }
             })
             col.add(preview)

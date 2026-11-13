@@ -169,6 +169,9 @@ class TutorialOverlay(
         index = i
         val s = steps[i]
         NabiTutorial.chatPreview = s.gesture == TutorialGesture.LONG_PRESS
+        // Hold the spotlight still until showStep() animates it (track() would otherwise jump to
+        // the new targets while the screen is still switching).
+        animating = true
         fingerAnim?.cancel()
         card.animate().alpha(0f).setDuration(120).start()
         arrow.animate().alpha(0f).setDuration(120).start()
@@ -308,7 +311,7 @@ class TutorialOverlay(
         val below = target == null || height - target.bottom > ch + margin * 2 + dp(20)
         val above = target != null && target.top - margin - dp(8) - ch >= dp(16)
         val y = when {
-            s.cardAtTop -> dp(28).toFloat() // above the room floor, so the walking cat never goes behind it
+            s.cardAtTop -> contentTop() + dp(12) // above the room floor, so the walking cat never goes behind it
             target == null -> (height - ch) / 2f
             below -> target.bottom + margin + dp(8)
             above -> target.top - margin - dp(8) - ch
@@ -323,6 +326,13 @@ class TutorialOverlay(
         to.firstOrNull()?.let { positionArrow(it) }
         val showArrow = target != null && !s.cardAtTop && (below || above)
         arrow.animate().alpha(if (showArrow) 1f else 0f).setStartDelay(80).setDuration(200).start()
+    }
+
+    /** Top of the app's content (below the status bar) in this layer's coordinates. */
+    private fun contentTop(): Float {
+        val me = IntArray(2).also { getLocationInWindow(it) }
+        val content = IntArray(2).also { activity.findViewById<View>(android.R.id.content).getLocationInWindow(it) }
+        return (content[1] - me[1]).coerceAtLeast(0).toFloat()
     }
 
     private fun positionArrow(hole: RectF) {
