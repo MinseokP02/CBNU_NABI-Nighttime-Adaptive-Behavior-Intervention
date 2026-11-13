@@ -4,6 +4,7 @@ NABI (Nighttime Adaptive Behavioral Intervention)의 FastAPI/PostgreSQL 백엔�
 
 - 백엔드 API·분석/중재 엔진: [`backend/README.md`](backend/README.md)
 - LLM 서버: [`llm-server/README.md`](llm-server/README.md)
+- Android 앱 (Kotlin, 화면 위 고양이): [`android/README.md`](android/README.md)
 
 ## 구조
 
@@ -23,6 +24,7 @@ NABI (Nighttime Adaptive Behavioral Intervention)의 FastAPI/PostgreSQL 백엔�
 │   ├── alembic/
 │   ├── app/
 │   └── tests/
+├── android/      (Kotlin Android 앱 — Android Studio에서 이 폴더를 엽니다)
 ├── llm-server/
 │   ├── Dockerfile
 │   ├── requirements.txt
