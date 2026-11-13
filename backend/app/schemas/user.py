@@ -15,8 +15,14 @@ class UserResponse(BaseModel):
 
 
 class UserStateResponse(BaseModel):
-    user: UserResponse
-    baseline: dict
-    risk: dict
+    """API-04: current sleep/behavior state summary for the home screen."""
+
+    baseline_status: str
+    baseline_valid_days: int
+    window_days: int
+    sleep_state: str
+    behavior_state: str
+    risk_level: str
+    risk_factors: list[str]
     cat: dict
     active_missions: list[dict]

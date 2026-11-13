@@ -1,32 +1,25 @@
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import (
-    BigInteger,
-    Date,
-    DateTime,
-    Float,
-    ForeignKey,
-    Integer,
-    String,
-    UniqueConstraint,
-    func,
-)
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import BigInteger, Date, DateTime, ForeignKey, Integer, String, func
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
 
 
 class Baseline(Base):
+    """Snapshot of a personal 14-day baseline (spec §4.3). A new row is stored only when inputs change."""
+
     __tablename__ = "baselines"
-    __table_args__ = (UniqueConstraint("user_id", "metric_name", name="uq_baseline_user_metric"),)
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.user_id", ondelete="CASCADE"), index=True)
-    metric_name: Mapped[str] = mapped_column(String(64))
-    median: Mapped[float] = mapped_column(Float)
-    mad: Mapped[float] = mapped_column(Float)
-    sample_count: Mapped[int] = mapped_column(Integer)
-    window_start: Mapped[date] = mapped_column(Date)
-    window_end: Mapped[date] = mapped_column(Date)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    status: Mapped[str] = mapped_column(String(16))  # ready | collecting
+    window_start: Mapped[date | None] = mapped_column(Date, nullable=True)
+    window_end: Mapped[date | None] = mapped_column(Date, nullable=True)
+    window_days: Mapped[int] = mapped_column(Integer)
+    valid_days: Mapped[int] = mapped_column(Integer)
+    metrics: Mapped[dict] = mapped_column(JSONB)
+    fingerprint: Mapped[str] = mapped_column(String(64))
+    analysis_version: Mapped[str] = mapped_column(String(16))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

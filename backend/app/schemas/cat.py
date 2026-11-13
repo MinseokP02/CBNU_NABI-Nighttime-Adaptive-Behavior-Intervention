@@ -1,12 +1,15 @@
-from datetime import datetime
+from pydantic import BaseModel
 
-from pydantic import BaseModel, ConfigDict
+from app.schemas.chat import CatAction
 
 
-class CatResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+class CatStateResponse(BaseModel):
+    """API-17. The app plays the animation for `cat_action`; coordinates stay on Android."""
+
     cat_id: int
     name: str
     level: int
     exp: int
-    updated_at: datetime
+    exp_to_next_level: int
+    cat_action: CatAction
+    reason: str

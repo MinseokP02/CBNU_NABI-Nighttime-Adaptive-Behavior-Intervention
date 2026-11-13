@@ -1,6 +1,10 @@
 # NABI server
 
-NABI (Nighttime Adaptive Behavioral Intervention)의 FastAPI/PostgreSQL 백엔드입니다. JWT 인증, 수면·행동 기록, 개인 baseline, robust risk 분석, 규칙 기반 중재, 미션·보상·고양이 성장, 안전한 LLM 개인화를 구현합니다.
+NABI (Nighttime Adaptive Behavioral Intervention)의 FastAPI/PostgreSQL 백엔드와 내부 LLM 서버입니다. JWT 인증, 수면·행동 기록, 개인 baseline, robust risk 분석, 규칙 기반 CBT-I 중재, 미션·보상·고양이 성장, 안전성 검증을 거친 LLM 대화를 구현합니다.
+
+- 백엔드 API·분석/중재 엔진: [`backend/README.md`](backend/README.md)
+- LLM 서버: [`llm-server/README.md`](llm-server/README.md)
+- Android 앱 (Kotlin, 화면 위 고양이): [`android/README.md`](android/README.md)
 
 ## 구조
 
@@ -19,6 +23,12 @@ NABI (Nighttime Adaptive Behavioral Intervention)의 FastAPI/PostgreSQL 백엔�
 │   ├── alembic.ini
 │   ├── alembic/
 │   ├── app/
+│   └── tests/
+├── android/      (Kotlin Android 앱 — Android Studio에서 이 폴더를 엽니다)
+├── llm-server/
+│   ├── Dockerfile
+│   ├── requirements.txt
+│   ├── app/   (main, inference, prompt_builder, safety, response_validator, schemas, ...)
 │   └── tests/
 └── scripts/
     ├── init.sh

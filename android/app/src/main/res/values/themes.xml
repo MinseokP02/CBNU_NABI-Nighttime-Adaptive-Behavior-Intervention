@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- App theme following the Figma design (cream background, ink text, Gowun Dodum body font). -->
+    <style name="Theme.Nabi" parent="@android:style/Theme.DeviceDefault.Light.NoActionBar">
+        <item name="android:windowBackground">@color/nabi_page</item>
+        <item name="android:statusBarColor">@color/nabi_page</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:colorAccent">@color/nabi_lavender</item>
+        <item name="android:colorPrimary">@color/nabi_lavender</item>
+        <item name="android:textColorPrimary">@color/nabi_ink</item>
+        <item name="android:textColorSecondary">@color/nabi_muted</item>
+        <item name="android:fontFamily">@font/gowun_dodum</item>
+    </style>
+
+    <!-- Chat: the app stays visible behind the bottom panel (Figma chat sheet). -->
+    <style name="Theme.Nabi.Sheet">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowAnimationStyle">@null</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+    </style>
+</resources>

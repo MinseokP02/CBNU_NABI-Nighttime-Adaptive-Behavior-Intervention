@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Design tokens from the Figma Make export (index.css :root). Code uses ui/Ui.kt Palette. -->
+    <color name="nabi_page">#F8EEE6</color>
+    <color name="nabi_ink">#4A3027</color>
+    <color name="nabi_muted">#75645B</color>
+    <color name="nabi_lavender">#A991CF</color>
+</resources>

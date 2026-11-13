@@ -1,4 +1,5 @@
 from functools import lru_cache
+from typing import Literal
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -22,15 +23,26 @@ class Settings(BaseSettings):
     jwt_issuer: str = "nabi-api"
     jwt_audience: str = "nabi-android"
     cors_origins: str = "http://localhost:3000"
+
+    # LLM server (internal API). Disabled => deterministic fallback replies.
     llm_enabled: bool = False
-    llm_base_url: str = ""
-    llm_api_key: str = ""
-    llm_model: str = "Qwen2.5-7B-Instruct"
-    llm_timeout_seconds: float = 5.0
-    baseline_min_days: int = 14
-    recent_window_days: int = 7
+    llm_server_url: str = "http://llm-server:8100"
+    llm_internal_token: str = ""
+    llm_timeout_seconds: float = 12.0
+    # "fallback": answer with a safe fixed sentence (NFR-06). "error": return 503 LLM_UNAVAILABLE.
+    llm_fail_mode: Literal["fallback", "error"] = "fallback"
+    llm_history_messages: int = 6
+    chat_rate_limit_per_minute: int = 20
+
+    # Analysis engine (spec §4.3/4.4). Thresholds are MVP change-detection settings, not diagnosis.
+    analysis_version: str = "1.0"
+    baseline_window_days: int = 14
+    baseline_min_valid_days: int = 10
+    valid_min_time_in_bed_min: int = 180
+    valid_max_time_in_bed_min: int = 960
     robust_z_warning_threshold: float = 2.0
     robust_z_high_threshold: float = 3.0
+    irregular_schedule_range_min: int = 120
 
     @property
     def sqlalchemy_url(self) -> str | URL:

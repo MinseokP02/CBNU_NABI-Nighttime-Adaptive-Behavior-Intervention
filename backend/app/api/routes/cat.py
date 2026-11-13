@@ -1,13 +1,12 @@
 from fastapi import APIRouter
-from sqlalchemy import select
 
 from app.api.deps import CurrentUser, DbSession
-from app.models.cat_profile import CatProfile
-from app.schemas.cat import CatResponse
+from app.schemas.cat import CatStateResponse
+from app.services.cat_service import cat_state
 
 router = APIRouter()
 
 
-@router.get("/profile", response_model=CatResponse)
-def profile(db: DbSession, user: CurrentUser):
-    return db.scalar(select(CatProfile).where(CatProfile.user_id == user.user_id))
+@router.get("/state", response_model=CatStateResponse)
+def state(db: DbSession, user: CurrentUser) -> dict:
+    return cat_state(db, user)
