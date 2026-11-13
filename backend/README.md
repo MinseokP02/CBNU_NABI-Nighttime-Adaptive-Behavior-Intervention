@@ -44,6 +44,7 @@ Swagger UI: <http://127.0.0.1:8000/docs>
 | API-09 | GET | `/analysis/baseline` | `ready` / `collecting` |
 | API-10 | GET | `/analysis/risk?window=3\|7` | 그 외 값은 422 |
 | API-11 | POST | `/analysis/refresh` | baseline + 3·7일 위험도 저장 |
+| API—11 | GET | `/analysis/trends?days=14` | 지표별 일자 값 + 개인 기준선 평소 범위 (7~60일, 추이 그래프용) |
 | API-12 | GET | `/interventions/recommendations` | `include_explanation=true`면 LLM-04 설명 포함 |
 | API-13 | GET | `/missions/active` | 활성 미션이 없으면 추천 중재의 미션 발급 |
 | API-14 | POST | `/missions/{mission_id}/complete` | 검증·보상·LLM-05 완료 메시지 |
@@ -52,6 +53,8 @@ Swagger UI: <http://127.0.0.1:8000/docs>
 | API-17 | GET | `/cat/state` | 고양이 행동 태그 |
 | API-18 | GET | `/reports/weekly` | `end_date` (기본: 사용자 시간대 오늘) |
 | API-19 | GET | `/health` | DB·LLM 상태 포함. 컨테이너용 `/health`, `/ready`도 유지 |
+
+
 
 `GET /rewards/history`는 기존 보상 이력 API로 유지합니다.
 
