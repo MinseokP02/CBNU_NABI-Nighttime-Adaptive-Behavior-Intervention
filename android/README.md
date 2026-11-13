@@ -48,6 +48,22 @@ HTTP(비암호화) 연결은 **debug 빌드에서만** 허용됩니다 (`app/src
 
 `cat_action` 값(`IDLE`, `SIT`, `WALK`, `SLEEP`, `HAPPY`, `COMFORT`)은 `backend/app/schemas/chat.py`와 `llm-server/app/schemas.py`의 enum과 같습니다.
 
+## 알림 · 기상 알람
+
+마이페이지 › 알림 설정에서 켜면 `AlarmManager`로 예약됩니다 (`alarm/`). 목표 시각은 마이페이지의 **수면 목표**를 씁니다.
+
+| 알림 | 시각 | 조건 |
+|---|---|---|
+| 취침 준비 안내 | 목표 취침 시각 30분 전 | — |
+| 수면 일지 작성 알림 | 목표 기상 시각 1시간 후 | 오늘 일지가 없을 때만. 누르면 수면 일지 탭 |
+| 활동 및 미션 안내 | 매일 15:00 | `GET /missions/active`에 남은 미션이 있을 때 (서버 실패 시 스트레칭 안내) |
+| 기상 알람 | 목표 기상 시각 | 잠금화면 위 전체화면 알람, 알람 소리 + 진동, "일어났어요" / "5분 더", 10분 뒤 자동 종료 |
+
+- "알림 받기"가 꺼져 있거나 목표 시각이 없으면 예약하지 않습니다. 로그아웃하면 모두 취소됩니다.
+- 재부팅·앱 업데이트·시간/시간대 변경 시 `BootReceiver`가 다시 예약합니다.
+- Android 12+에서 "알람 및 리마인더"(정확한 알람) 권한이 없으면 알림 설정 화면에 권한 카드가 뜨고, 그동안은 몇 분 늦을 수 있는 일반 알람으로 예약합니다.
+- 테스트: 수면 목표를 1~2분 뒤로 저장 → `adb shell dumpsys alarm | grep -A3 com.cbnu.nabi`로 예약 확인.
+
 ## 구조
 
 ```text
@@ -58,6 +74,11 @@ android/
     │   ├── ApiClient.kt            /api/v1 호출 (HttpURLConnection + org.json, 외부 라이브러리 없음)
     │   ├── Models.kt               응답 모델, CatAction enum, 한글 라벨
     │   └── Prefs.kt                서버 주소, JWT, conversation_id, 친밀도
+    ├── alarm/
+    │   ├── NabiAlarms.kt           알림·기상 알람 예약/취소 (AlarmManager), 알림 채널
+    │   ├── AlarmReceiver.kt        알림 표시 + 다음 날 재예약
+    │   ├── BootReceiver.kt         재부팅·시간 변경 시 재예약
+    │   └── WakeAlarmActivity.kt    전체화면 기상 알람 (해제/스누즈)
     ├── pet/
     │   ├── CatView.kt              고양이 그리기·상태 머신·터치 (Mochi) + 서버 반응·꾹 누르기·여러 줄 말풍선
     │   └── PetService.kt           오버레이 창 2개 (Mochi) + /cat/state 주기 동기화

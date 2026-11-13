@@ -19,6 +19,7 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import com.cbnu.nabi.R
+import com.cbnu.nabi.alarm.NabiAlarms
 import com.cbnu.nabi.data.ApiClient
 import com.cbnu.nabi.data.Prefs
 
@@ -65,7 +66,9 @@ class MainActivity : Activity() {
             ?.let { name -> Tab.values().firstOrNull { it.name == name } } ?: Tab.HOME
 
         render()
-        if (savedInstanceState == null) showProposalFrom(intent)
+        if (savedInstanceState == null) { showProposalFrom(intent); openTabFrom(intent) }
+        NabiAlarms.ensureChannels(this)
+        NabiAlarms.reschedule(this)
 
         if (Build.VERSION.SDK_INT >= 33 &&
             checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
@@ -106,6 +109,7 @@ class MainActivity : Activity() {
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
         showProposalFrom(intent)
+        openTabFrom(intent)
         if (intent.getBooleanExtra(EXTRA_DECORATE, false) && prefs.loggedIn) {
             if (tabButtons.isNotEmpty()) selectTab(Tab.HOME)
             homePanel?.enterDecorate()
@@ -144,6 +148,15 @@ class MainActivity : Activity() {
     /** A mission's state changed (e.g. an AUTO check was reported): refresh 나의 미션 and the count. */
     fun onMissionsChanged() {
         homePanel?.onMissionsChanged()
+    }
+
+    /** A reminder notification (e.g. 수면 일지 작성 알림) asks for a tab with [EXTRA_OPEN_TAB]. */
+    private fun openTabFrom(intent: android.content.Intent?) {
+        val name = intent?.getStringExtra(EXTRA_OPEN_TAB) ?: return
+        intent.removeExtra(EXTRA_OPEN_TAB)
+        val tab = Tab.values().firstOrNull { it.name == name } ?: return
+        currentTab = tab
+        if (prefs.loggedIn && tabButtons.isNotEmpty()) selectTab(tab)
     }
 
     private fun showProposalFrom(intent: android.content.Intent?) {
@@ -255,6 +268,7 @@ class MainActivity : Activity() {
     }
 
     private fun onLoggedIn() {
+        NabiAlarms.reschedule(this)
         render()
         homePanel?.refresh()
     }
@@ -383,6 +397,8 @@ class MainActivity : Activity() {
 
     companion object {
         const val EXTRA_DECORATE = "decorate"
+        const val EXTRA_OPEN_TAB = "open_tab"
+        const val TAB_SLEEP = "SLEEP"
         /** The live main screen, so the chat panel can blur it. */
         var current: java.lang.ref.WeakReference<MainActivity>? = null
         private const val KEY_TAB = "tab"

@@ -17,6 +17,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import com.cbnu.nabi.R
+import com.cbnu.nabi.alarm.NabiAlarms
 import com.cbnu.nabi.pet.PetService
 import java.time.LocalTime
 
@@ -449,7 +450,7 @@ class ProfilePanel(private val activity: MainActivity, private val onLogout: () 
         val s = store
         // A fixed note, and in the same spot a small pill that pops up after each toggle and fades
         // away (like the "나비를 터치해 보세요" hint on home).
-        val note = activity.label("알림 기능은 준비 중이에요. 설정은 이 기기에 저장돼요.", 11f, Palette.muted).apply { gravity = Gravity.CENTER }
+        val note = activity.label("설정은 이 기기에 저장되고, 목표 수면 시각에 맞춰 알림이 예약돼요.", 11f, Palette.muted).apply { gravity = Gravity.CENTER }
         val toast = activity.label("", 11f, Palette.lavenderDeep, bold = true).apply {
             setPadding(activity.dp(12), activity.dp(6), activity.dp(12), activity.dp(6))
             background = activity.cardBg(Color.argb(240, 255, 250, 246), 999, Color.parseColor("#D9C9E6"))
@@ -461,23 +462,32 @@ class ProfilePanel(private val activity: MainActivity, private val onLogout: () 
             minimumHeight = activity.dp(30)
         }
 
+        fun permissionCard(iconRes: Int, title: String, body: String, open: () -> Unit) = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(activity.dp(11), activity.dp(11), activity.dp(11), activity.dp(11))
+            background = activity.cardBg(Color.parseColor("#F2EAF7"), 17, Color.parseColor("#D9C9E6"))
+            addView(settingIcon(iconRes))
+            val t = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
+            t.addView(activity.label(title, 12.5f, bold = true))
+            t.addView(activity.label(body, 10.5f, Palette.muted).apply { setPadding(0, activity.dp(3), 0, 0) })
+            addView(t, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { leftMargin = activity.dp(9) })
+            addView(chevron())
+            setOnClickListener { open() }
+        }
         val granted = Build.VERSION.SDK_INT < 33 ||
             activity.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
         if (!granted) {
-            col.add(LinearLayout(activity).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                setPadding(activity.dp(11), activity.dp(11), activity.dp(11), activity.dp(11))
-                background = activity.cardBg(Color.parseColor("#F2EAF7"), 17, Color.parseColor("#D9C9E6"))
-                addView(settingIcon(R.drawable.ic_bell))
-                val t = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
-                t.addView(activity.label("운영체제 알림 권한이 필요해요", 12.5f, bold = true))
-                t.addView(activity.label("앱 설정에서 권한을 확인해 주세요.", 10.5f, Palette.muted).apply { setPadding(0, activity.dp(3), 0, 0) })
-                addView(t, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { leftMargin = activity.dp(9) })
-                addView(chevron())
-                setOnClickListener {
-                    activity.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                        .putExtra(Settings.EXTRA_APP_PACKAGE, activity.packageName))
+            col.add(permissionCard(R.drawable.ic_bell, "운영체제 알림 권한이 필요해요", "앱 설정에서 권한을 확인해 주세요.") {
+                activity.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                    .putExtra(Settings.EXTRA_APP_PACKAGE, activity.packageName))
+            })
+        }
+        // Android 12+: without "알람 및 리마인더" the alarms still ring, just possibly a few minutes late.
+        if (!NabiAlarms.canScheduleExact(activity) && Build.VERSION.SDK_INT >= 31) {
+            col.add(permissionCard(R.drawable.ic_clock, "정확한 알람 권한이 필요해요", "허용하면 기상 알람이 정확한 시각에 울려요.") {
+                runCatching {
+                    activity.startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:${activity.packageName}")))
                 }
             })
         }
@@ -495,7 +505,8 @@ class ProfilePanel(private val activity: MainActivity, private val onLogout: () 
         val rows = listOf(
             Triple(ProfileStore.N_SLEEP_PREP, "취침 준비 안내" to "목표 취침 시각에 맞춰 수면 준비를 안내해요.", R.drawable.ic_moon),
             Triple(ProfileStore.N_DIARY, "수면 일지 작성 알림" to "기상 후 작성하지 않은 수면 일지를 안내해요.", R.drawable.ic_book),
-            Triple(ProfileStore.N_MISSION, "활동 및 미션 안내" to "활동이 부족할 때 스트레칭이나 산책을 안내해요.", R.drawable.ic_target),
+            Triple(ProfileStore.N_MISSION, "활동 및 미션 안내" to "오후에 남은 미션이나 스트레칭·산책을 안내해요.", R.drawable.ic_target),
+            Triple(ProfileStore.N_WAKE_ALARM, "기상 알람" to "목표 기상 시각에 나비가 소리와 진동으로 깨워요.", R.drawable.ic_sun),
         )
         val subToggles = mutableListOf<ToggleSwitch>()
         val subCard = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
