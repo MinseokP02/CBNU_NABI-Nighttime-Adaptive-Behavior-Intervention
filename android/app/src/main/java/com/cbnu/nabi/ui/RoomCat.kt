@@ -28,10 +28,17 @@ class RoomCat(private val activity: Activity, private val floor: FrameLayout) : 
     /** The box around the cat's body that takes touches (moves with the cat), or null when hidden. */
     val touchArea: View? get() = touch
 
+    /** show() was asked for and hide() hasn't been called since (used while waiting for the floor). */
+    private var wanted = false
+    private var waitingForLayout = false
+
     @SuppressLint("ClickableViewAccessibility")
     fun show() {
+        wanted = true
         if (cat != null) return
-        if (floor.width == 0 || floor.height == 0) { floor.post { show() }; return }
+        // The floor isn't laid out yet (e.g. the 홈 tab is hidden): wait for its first real layout
+        // instead of re-posting every frame.
+        if (floor.width == 0 || floor.height == 0) { showAfterLayout(); return }
         val c = CatView(activity, this)
         // Same split as the overlay: the cat view draws only; a small box around its body takes touches.
         val t = object : View(activity) {
@@ -46,7 +53,21 @@ class RoomCat(private val activity: Activity, private val floor: FrameLayout) : 
         cat = c; touch = t
     }
 
+    private fun showAfterLayout() {
+        if (waitingForLayout) return
+        waitingForLayout = true
+        floor.addOnLayoutChangeListener(object : View.OnLayoutChangeListener {
+            override fun onLayoutChange(v: View, l: Int, t: Int, r: Int, b: Int, ol: Int, ot: Int, or: Int, ob: Int) {
+                if (r - l == 0 || b - t == 0) return
+                v.removeOnLayoutChangeListener(this)
+                waitingForLayout = false
+                v.post { if (wanted) show() } // not during layout
+            }
+        })
+    }
+
     fun hide() {
+        wanted = false
         cat?.let { floor.removeView(it) }
         touch?.let { floor.removeView(it) }
         cat = null; touch = null

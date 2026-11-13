@@ -232,7 +232,6 @@ class MainActivity : Activity() {
         }.show()
     }
 
-    /** Show the 수면 일지 tab (phone). On a tablet it is already visible on the left. */
     /** Open the "나의 수면 분석" sheet (home card or the diary's 자세히 분석하기). */
     fun openAnalysis() {
         homePanel?.openAnalysis()
@@ -244,6 +243,7 @@ class MainActivity : Activity() {
         showDiary()
     }
 
+    /** Show the 수면 일지 tab on today (phone). On a tablet it is already visible on the left. */
     fun showDiary() {
         sleepPanel?.showToday()
         if (tabButtons.isNotEmpty()) selectTab(Tab.SLEEP)
@@ -252,11 +252,6 @@ class MainActivity : Activity() {
     /** The overlay switch in 마이페이지 changed: let the home room take or give back the cat. */
     fun onOverlayChanged() {
         homePanel?.onOverlayChanged()
-    }
-
-    /** Home loaded the user state; refresh what the profile and the diary show. */
-    fun onUserStateLoaded(state: com.cbnu.nabi.data.UserState) {
-        profilePanel?.update()
     }
 
     private fun onLoggedIn() {
@@ -391,7 +386,6 @@ class MainActivity : Activity() {
         /** The live main screen, so the chat panel can blur it. */
         var current: java.lang.ref.WeakReference<MainActivity>? = null
         private const val KEY_TAB = "tab"
-        private const val TABLET_MIN_DP = 600
         private const val THREE_PANE_MIN_WIDTH_DP = 840
         private const val NAV_HEIGHT_DP = 64
         private const val NAV_BOTTOM_DP = 9

@@ -707,7 +707,6 @@ class HomePanel(private val activity: MainActivity) {
                 missions = list
                 updateMissionCount()
                 missionSheet?.let { renderMissions(it.body) }
-                activity.onUserStateLoaded(state)
             }.onFailure {
                 showAnalysis(lastState, it.friendly())
                 if (!activity.prefs.loggedIn) activity.showLogin() // token expired (401)

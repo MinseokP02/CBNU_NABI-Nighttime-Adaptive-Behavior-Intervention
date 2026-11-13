@@ -39,8 +39,11 @@ fun Activity.dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
  * where the 3-pane layout appears (FR-01-02). Not used on the translucent chat panel, which simply
  * follows the screen behind it (fixed orientation on translucent activities crashes on Android 8.0).
  */
+/** Shortest screen side (dp) from which a device counts as a tablet (rotation, 3-pane layout). */
+const val TABLET_MIN_DP = 600
+
 fun Activity.lockPortraitOnPhones() {
-    if (resources.configuration.smallestScreenWidthDp < 600) {
+    if (resources.configuration.smallestScreenWidthDp < TABLET_MIN_DP) {
         requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
     }
 }

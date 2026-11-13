@@ -97,6 +97,17 @@ class ChatActivity : Activity() {
         normalH = maxOf((h * 0.82f).toInt().coerceAtMost(dp(720)), minOf(dp(470), h - dp(40)))
         val panelW = minOf(resources.displayMetrics.widthPixels, dp(BottomSheet.MAX_WIDTH_DP))
         root.addView(panel, FrameLayout.LayoutParams(panelW, normalH).apply { gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL })
+        // The keyboard shrinks the window (adjustResize): keep the whole panel — handle, close button
+        // and the safety notice — on screen above it, and give the normal / full height back after.
+        root.addOnLayoutChangeListener { _, _, top, _, bottom, _, oldTop, _, oldBottom ->
+            val avail = bottom - top
+            val old = oldBottom - oldTop
+            if (old == 0 || avail == old || dragMoved) return@addOnLayoutChangeListener
+            root.post {
+                setPanelHeight(if (expanded) avail else minOf(normalH, avail))
+                if (avail < old) scrollToEnd() // keyboard opened: keep the latest messages visible
+            }
+        }
         setContentView(root)
         blurApp(true)
 
@@ -141,8 +152,12 @@ class ChatActivity : Activity() {
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> if (dragMoved) {
                 when {
                     panel.translationY > dp(72) -> close()
-                    panel.height > (normalH + fullH()) / 2 -> animateHeight(fullH())
-                    else -> { animateHeight(normalH); panel.animate().translationY(0f).setDuration(160).start() }
+                    panel.height > (normalH + fullH()) / 2 -> { expanded = true; animateHeight(fullH()) }
+                    else -> {
+                        expanded = false
+                        animateHeight(minOf(normalH, fullH()))
+                        panel.animate().translationY(0f).setDuration(160).start()
+                    }
                 }
             }
         }
@@ -152,6 +167,8 @@ class ChatActivity : Activity() {
     private var dragStartH = 0
     private var dragMoved = false
     private var normalH = 0
+    /** The panel was pulled up to full screen (kept across the keyboard opening and closing). */
+    private var expanded = false
 
     private fun fullH() = (panel.parent as View).height
 
