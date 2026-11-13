@@ -17,8 +17,8 @@ import java.time.YearMonth
  * "살펴볼 점" (risk factors, FR-04-03 — added by user decision), month calendar with record dots,
  * last 7 days of sleep, and the selected day's record.
  *
- * Records come from [SleepDiaryStore] (entries saved on this device) until the app can read
- * GET /sleep-records — the source row says so.
+ * Records come from [SleepDiaryStore]: entries saved on this device plus the server's records
+ * (GET /sleep-records, GET /behavior-records) — the source row says which.
  */
 class SleepDiaryPanel(private val activity: MainActivity) {
 
@@ -34,6 +34,9 @@ class SleepDiaryPanel(private val activity: MainActivity) {
 
     private val calendarBox = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
     private val detailBox = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
+
+    /** "전체 수면 분석": trend charts from GET /analysis/trends. */
+    private val trends = SleepTrendSection(activity)
 
     val view: View
 
@@ -66,15 +69,17 @@ class SleepDiaryPanel(private val activity: MainActivity) {
         (sub.layoutParams as LinearLayout.LayoutParams).topMargin = activity.dp(2)
         page.add(calendarBox)
         page.add(detailBox)
+        page.add(trends.view)
         view = activity.scrollPage(page)
         refresh()
     }
 
-    /** Re-read the local diary (after saving a record, on resume) and redraw. */
+    /** Redraw from what is cached now (after saving a record, on resume). [HomePanel.refresh] syncs the server copy. */
     fun refresh() {
         entries = store.all().associateBy { it.date }
         renderCalendar()
         renderDetail()
+        trends.load()
     }
 
     /** Opened from the home analysis card: jump back to this month and today's record. */
@@ -250,12 +255,19 @@ class SleepDiaryPanel(private val activity: MainActivity) {
 
         // "생활 습관과 상세 지표 보기" — collapsible like the Figma <details>
         val more = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL; visibility = View.GONE; setPadding(0, activity.dp(4), 0, 0) }
-        fun yn(b: Boolean) = if (b) "예" else "아니요"
+        fun minutes(b: Boolean?, min: Int?) = when (b) {
+            null -> "기록 없음"; false -> "아니요"; true -> min?.let { "예 · ${it}분" } ?: "예"
+        }
         more.addView(detailLine("잠들기까지 걸린 시간", "${e.latencyMin}분"))
-        more.addView(detailLine("밤중 각성", if (e.awakenings == null && e.awakeMinutes == null) "데이터 없음"
-            else "${e.awakenings ?: 0}회 · ${e.awakeMinutes ?: 0}분"))
-        more.addView(detailLine("수면 만족도", SleepRecordSheet.SATISFACTIONS[e.satisfaction - 1]))
-        more.addView(detailLine("낮잠 / 카페인 / 운동", "${yn(e.nap)} · ${yn(e.caffeine)} · ${yn(e.exercise)}"))
+        more.addView(detailLine("밤중 각성", when {
+            e.awakenings == null && e.awakeMinutes == null -> "데이터 없음"
+            e.awakenings == null -> "${e.awakeMinutes}분"
+            else -> "${e.awakenings}회 · ${e.awakeMinutes ?: 0}분"
+        }))
+        more.addView(detailLine("수면 만족도", e.satisfaction?.let { SleepRecordSheet.SATISFACTIONS[it - 1] } ?: "기록 없음"))
+        more.addView(detailLine("전날 낮잠", minutes(e.nap, e.napMin)))
+        more.addView(detailLine("오후 2시 이후 카페인", when (e.caffeine) { null -> "기록 없음"; true -> "예"; false -> "아니요" }))
+        more.addView(detailLine("전날 운동", minutes(e.exercise, e.exerciseMin)))
         val toggle = activity.label("▸ 생활 습관과 상세 지표 보기", 11.5f, Color.parseColor("#71568D"), bold = true).apply {
             setPadding(0, activity.dp(12), 0, activity.dp(4))
         }
@@ -273,7 +285,12 @@ class SleepDiaryPanel(private val activity: MainActivity) {
         src.addView(activity.icon(R.drawable.ic_source, Palette.lavender, 20))
         src.addView(activity.label("데이터 출처", 11f, Palette.muted).apply { maxLines = 1 },
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { leftMargin = activity.dp(6) })
-        src.addView(activity.label("사용자 입력 · 이 기기에서 저장", 11f, bold = true).apply { gravity = Gravity.END },
+        val srcText = when {
+            e.fromServer -> "사용자 입력 · 서버에서 불러옴"
+            e.serverSaved -> "사용자 입력 · 서버에 저장됨"
+            else -> "사용자 입력 · 이 기기에서 저장"
+        }
+        src.addView(activity.label(srcText, 11f, bold = true).apply { gravity = Gravity.END },
             LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { leftMargin = activity.dp(8) })
         c.addView(src)
         detailBox.addView(c)

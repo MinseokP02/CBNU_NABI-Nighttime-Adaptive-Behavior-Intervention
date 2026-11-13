@@ -55,6 +55,7 @@ class HomePanel(private val activity: MainActivity) {
     // analysis card
     private val analysisBody = FrameLayout(activity)
     private var lastState: UserState? = null
+    private var lastRisk: com.cbnu.nabi.data.RiskAnalysis? = null
     private var analysisError = false
     private var missions: List<Mission> = emptyList()
     private var missionSheet: BottomSheet? = null
@@ -283,7 +284,7 @@ class HomePanel(private val activity: MainActivity) {
             setPadding(activity.dp(14), 0, activity.dp(14), 0)
         }
         right.addView(metric("수면 효율", e?.let { "${it.efficiencyPct}%" } ?: "—"))
-        right.addView(metric("수면 만족도", e?.let { SleepRecordSheet.SATISFACTIONS[it.satisfaction - 1] } ?: "—"),
+        right.addView(metric("수면 만족도", e?.satisfaction?.let { SleepRecordSheet.SATISFACTIONS[it - 1] } ?: "—"),
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = activity.dp(10) })
         row.addView(right, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 0.52f))
         analysisBody.addView(row, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
@@ -304,7 +305,7 @@ class HomePanel(private val activity: MainActivity) {
         val p = SleepAnalysisPanel(activity,
             onOpenDiary = { closeAnalysis(); activity.showDiaryFromAnalysis() },
             onClosed = { analysis = null })
-        p.render(lastState)
+        p.render(lastState, lastRisk)
         analysis = p
         p.show()
     }
@@ -698,15 +699,25 @@ class HomePanel(private val activity: MainActivity) {
         startTouchHints()
         root.post { updateCat() }
         if (lastState == null) showAnalysis(null, null)
-        activity.bg({ activity.api.userState() to activity.api.activeMissions() }) { r ->
-            r.onSuccess { (state, list) ->
+        activity.bg({
+            val state = activity.api.userState()
+            val list = activity.api.activeMissions()
+            // Extra data: a failure here keeps the cached copy and never blocks the home screen.
+            runCatching { SleepDiaryStore(activity, activity.prefs.email).syncFromServer(activity.api) }
+            val risk = runCatching { activity.api.risk(7) }.getOrNull()
+            Triple(state, list, risk)
+        }) { r ->
+            r.onSuccess { (state, list, risk) ->
                 lastState = state
+                if (risk != null) lastRisk = risk
                 activity.prefs.catName = state.catName
                 showAnalysis(state, null)
-                analysis?.render(state)
+                analysis?.render(state, lastRisk)
                 missions = list
                 updateMissionCount()
                 missionSheet?.let { renderMissions(it.body) }
+                activity.onDiaryChanged()
+                activity.maybeShowRecommendation()
             }.onFailure {
                 showAnalysis(lastState, it.friendly())
                 if (!activity.prefs.loggedIn) activity.showLogin() // token expired (401)

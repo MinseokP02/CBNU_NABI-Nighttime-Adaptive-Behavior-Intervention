@@ -122,14 +122,41 @@ class MainActivity : Activity() {
         MissionProposalModal(this, p) { response ->
             MissionProposalStore(this, prefs.email).record(p, response)
             if (response == ProposalResponse.ACCEPTED) when (p.kind.flow) {
+                // A server mission is already in GET /missions/active: just reload 나의 미션.
                 ProposalFlow.TRACKABLE -> {
                     Toast.makeText(this, "나의 미션에 추가했어요", Toast.LENGTH_SHORT).show()
-                    homePanel?.onMissionsChanged()
+                    if (p.serverMissionId != null) homePanel?.refresh() else homePanel?.onMissionsChanged()
                 }
                 ProposalFlow.SLEEP_DIARY -> openSleepRecord()
                 ProposalFlow.NOTICE -> Unit // acknowledged only; brightness control is not done here
             }
         }.show()
+    }
+
+    private var recommendationLoading = false
+
+    /**
+     * API-12 → "나비의 제안": the server's intervention engine picks the intervention (with the LLM's
+     * explanation); the app only shows it, at most once a day and never during the tutorial.
+     */
+    fun maybeShowRecommendation() {
+        if (!prefs.loggedIn || tutorial != null || recommendationLoading) return
+        val store = MissionProposalStore(this, prefs.email)
+        if (store.shownToday() != null) return
+        recommendationLoading = true
+        bg({ api.recommendation(includeExplanation = true) }) { r ->
+            recommendationLoading = false
+            val rec = r.getOrNull() ?: return@bg
+            val id = rec.interventionId ?: return@bg
+            if (isFinishing || isDestroyed || tutorial != null || !prefs.loggedIn || store.shownToday() != null) return@bg
+            store.markShownToday("server-$id")
+            showMissionProposal(MissionProposals.fromRecommendation(rec))
+        }
+    }
+
+    /** A diary record changed or the server copy was synced: redraw the diary. */
+    fun onDiaryChanged() {
+        sleepPanel?.refresh()
     }
 
     /**

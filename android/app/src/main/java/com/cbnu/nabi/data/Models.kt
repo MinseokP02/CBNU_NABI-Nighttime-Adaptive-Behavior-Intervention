@@ -2,6 +2,8 @@ package com.cbnu.nabi.data
 
 import org.json.JSONArray
 import org.json.JSONObject
+import java.time.LocalDate
+import java.time.OffsetDateTime
 
 /*
  * Response models for the NABI backend (the .py files in backend/app/schemas).
@@ -166,6 +168,161 @@ data class ChatMessage(
             }
     }
 }
+
+/** API-06 GET /sleep-records item. Times keep the offset the app sent. */
+data class SleepRecordItem(
+    val sleepDate: LocalDate,
+    val bedtime: OffsetDateTime,
+    val finalAwakening: OffsetDateTime,
+    val sleepOnsetLatencyMin: Int,
+    val wakeAfterSleepOnsetMin: Int,
+    val totalSleepMin: Int,
+    val sleepEfficiency: Double,
+    val sleepQuality: Int?,
+) {
+    companion object {
+        fun list(j: JSONObject): List<SleepRecordItem> =
+            (j.optJSONArray("items") ?: JSONArray()).objects().map {
+                SleepRecordItem(
+                    sleepDate = LocalDate.parse(it.getString("sleep_date")),
+                    bedtime = OffsetDateTime.parse(it.getString("bedtime")),
+                    finalAwakening = OffsetDateTime.parse(it.getString("final_awakening")),
+                    sleepOnsetLatencyMin = it.optInt("sleep_onset_latency_min"),
+                    wakeAfterSleepOnsetMin = it.optInt("wake_after_sleep_onset_min"),
+                    totalSleepMin = it.optInt("total_sleep_time_min"),
+                    sleepEfficiency = it.optDouble("sleep_efficiency"),
+                    sleepQuality = if (it.isNull("sleep_quality")) null else it.optInt("sleep_quality"),
+                )
+            }
+    }
+}
+
+/** API-08 GET /behavior-records item. null = not recorded. */
+data class BehaviorRecordItem(
+    val recordDate: LocalDate,
+    val caffeineAfterCutoff: Boolean?,
+    val napDurationMin: Int?,
+    val exerciseDurationMin: Int?,
+) {
+    companion object {
+        fun list(j: JSONObject): List<BehaviorRecordItem> =
+            (j.optJSONArray("items") ?: JSONArray()).objects().map {
+                BehaviorRecordItem(
+                    recordDate = LocalDate.parse(it.getString("record_date")),
+                    caffeineAfterCutoff = if (it.isNull("caffeine_after_cutoff")) null else it.optBoolean("caffeine_after_cutoff"),
+                    napDurationMin = if (it.isNull("nap_duration_min")) null else it.optInt("nap_duration_min"),
+                    exerciseDurationMin = if (it.isNull("exercise_duration_min")) null else it.optInt("exercise_duration_min"),
+                )
+            }
+    }
+}
+
+/** One metric of API-10 (`metrics.<name>`). bedtime / wake_time are minutes from the anchor clock. */
+data class MetricScore(val recentValue: Double, val baselineMedian: Double?)
+
+/** API-10 GET /analysis/risk */
+data class RiskAnalysis(
+    val baselineStatus: String,
+    val riskLevel: String,
+    val riskFactors: List<String>,
+    val metrics: Map<String, MetricScore>,
+    /** Metric names the server flagged in factor_details (e.g. "sleep_efficiency"). */
+    val flaggedMetrics: Set<String>,
+) {
+    companion object {
+        fun from(j: JSONObject): RiskAnalysis {
+            val m = j.optJSONObject("metrics") ?: JSONObject()
+            val metrics = m.keys().asSequence().associateWith { k ->
+                val o = m.getJSONObject(k)
+                MetricScore(o.optDouble("recent_value"), if (o.isNull("baseline_median") || !o.has("baseline_median")) null else o.optDouble("baseline_median"))
+            }
+            val factors = j.optJSONArray("risk_factors") ?: JSONArray()
+            return RiskAnalysis(
+                baselineStatus = j.optString("baseline_status"),
+                riskLevel = j.optString("risk_level"),
+                riskFactors = (0 until factors.length()).map { factors.getString(it) },
+                metrics = metrics,
+                flaggedMetrics = (j.optJSONArray("factor_details") ?: JSONArray()).objects().map { it.optString("metric") }.toSet(),
+            )
+        }
+    }
+}
+
+/** API-12 GET /interventions/recommendations */
+data class Recommendation(
+    val interventionId: Int?,
+    val code: String,
+    val category: String,
+    val title: String,
+    val message: String,
+    val missionId: Int?,
+    /** LLM explanation when asked for (falls back to [message] on the server). */
+    val explanation: String?,
+) {
+    companion object {
+        fun from(j: JSONObject) = Recommendation(
+            interventionId = if (j.isNull("intervention_id")) null else j.optInt("intervention_id"),
+            code = j.optString("code"),
+            category = j.optString("category"),
+            title = j.optString("title"),
+            message = j.optString("message"),
+            missionId = if (j.isNull("mission_id")) null else j.optInt("mission_id"),
+            explanation = j.str("explanation")?.ifBlank { null },
+        )
+    }
+}
+
+/** GET /analysis/trends — one value per night/day plus the server's usual range. */
+data class Trends(
+    val days: Int,
+    val startDate: LocalDate?,
+    val endDate: LocalDate?,
+    val baselineReady: Boolean,
+    val metrics: List<TrendMetric>,
+) {
+    companion object {
+        private fun date(j: JSONObject, k: String) = j.str(k)?.let(LocalDate::parse)
+        fun from(j: JSONObject) = Trends(
+            days = j.optInt("days"),
+            startDate = date(j, "start_date"),
+            endDate = date(j, "end_date"),
+            baselineReady = j.optString("baseline_status") == "ready",
+            metrics = (j.optJSONArray("metrics") ?: JSONArray()).objects().map { m ->
+                val band = m.optJSONObject("band")
+                val latest = m.optJSONObject("latest")
+                TrendMetric(
+                    metric = m.optString("metric"),
+                    domain = m.optString("domain"),
+                    unit = m.optString("unit"),
+                    anchor = m.str("anchor"),
+                    points = (m.optJSONArray("points") ?: JSONArray()).objects()
+                        .map { TrendPoint(LocalDate.parse(it.getString("date")), it.getDouble("value")) },
+                    band = band?.let { TrendBand(it.getDouble("median"), it.getDouble("low"), it.getDouble("high")) },
+                    reference = if (m.isNull("reference") || !m.has("reference")) null else m.getDouble("reference"),
+                    latestStatus = latest?.optString("status"),
+                )
+            },
+        )
+    }
+}
+
+data class TrendPoint(val date: LocalDate, val value: Double)
+data class TrendBand(val median: Double, val low: Double, val high: Double)
+
+/**
+ * [unit]: clock (minutes from [anchor] "HH:MM"), minutes, ratio (0..1).
+ * [latestStatus]: normal / changed / improved / unknown, judged by the server.
+ */
+data class TrendMetric(
+    val metric: String,
+    val domain: String,
+    val unit: String,
+    val anchor: String?,
+    val points: List<TrendPoint>,
+    val band: TrendBand?,
+    val reference: Double?,
+    val latestStatus: String?,
+)
 
 /** API-19 GET /health */
 data class Health(val status: String, val database: String, val llm: String) {

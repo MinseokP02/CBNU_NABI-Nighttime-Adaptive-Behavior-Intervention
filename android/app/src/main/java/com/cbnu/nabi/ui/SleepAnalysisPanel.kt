@@ -51,8 +51,8 @@ class SleepAnalysisPanel(
         private set
     fun lockForTutorial(onBack: () -> Unit) = sheet.lockForTutorial(onBack)
 
-    fun render(state: UserState?) {
-        val a = SleepAnalysisSource.build(activity, activity.prefs.email, state)
+    fun render(state: UserState?, risk: com.cbnu.nabi.data.RiskAnalysis? = null) {
+        val a = SleepAnalysisSource.build(activity, activity.prefs.email, state, risk)
         col.root.removeAllViews()
         statusView = col.add(statusCard(a))
         trendView = col.add(trendCard(a))
@@ -235,7 +235,7 @@ class SleepAnalysisPanel(
         a.comparisons.forEach { r ->
             c.addView(View(activity).apply { setBackgroundColor(Color.parseColor("#EFE3DA")) },
                 LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, activity.dp(1)))
-            val baselineText = r.baseline ?: if (a.baselineReady) "연동 준비 중" else "수집 중"
+            val baselineText = r.baseline ?: if (a.baselineReady) "—" else "수집 중"
             c.addView(compareRowView(r.name, baselineText, r.recent ?: "기록 없음", status = r.status,
                 baselineMuted = r.baseline == null, recentMuted = r.recent == null))
         }
@@ -243,10 +243,10 @@ class SleepAnalysisPanel(
             !a.stateLoaded -> "개인 기준선 정보를 불러오는 중이에요."
             !a.baselineReady -> "개인 기준선 수집 중 · 유효 기록 ${a.validDays ?: 0}일" +
                 "\n기준선은 팀 분석 기준에 맞는 유효 기록이 모이면 만들어져요."
-            else -> "개인 기준선이 준비되었어요.\n평소 값은 분석 연동 후 보여드려요."
+            else -> "개인 기준선이 준비되었어요.\n평소 값은 서버 분석의 개인 기준선(중앙값)이에요."
         }
         c.addView(note(base))
-        c.addView(note("정상·주의 판정은 분석 결과가 제공될 때만 표시해요.", 10.5f))
+        c.addView(note("‘평소와 달라요’는 서버 분석이 최근 7일에서 변화를 찾은 항목이에요.", 10.5f))
         return c
     }
 

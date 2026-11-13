@@ -1,6 +1,7 @@
 package com.cbnu.nabi.ui
 
 import android.content.Context
+import com.cbnu.nabi.data.RiskAnalysis
 import com.cbnu.nabi.data.UserState
 import java.time.LocalDate
 
@@ -41,10 +42,17 @@ data class SleepAnalysis(
     val habits: List<HabitRow>,
 )
 
-/** Builds [SleepAnalysis] from what the app has today: GET /users/me/state + the local diary. */
+/**
+ * Builds [SleepAnalysis] from GET /users/me/state, GET /analysis/risk?window=7 (personal baseline
+ * medians and the metrics the server flagged) and the diary (local + server records).
+ */
 object SleepAnalysisSource {
 
-    fun build(context: Context, email: String?, state: UserState?): SleepAnalysis {
+    /** The server measures bedtime / wake time as minutes from these clocks (baseline_service.py defaults). */
+    private const val BED_ANCHOR_MIN = 23 * 60
+    private const val WAKE_ANCHOR_MIN = 7 * 60
+
+    fun build(context: Context, email: String?, state: UserState?, server: RiskAnalysis? = null): SleepAnalysis {
         val today = LocalDate.now()
         val days = (6 downTo 0).map { today.minusDays(it.toLong()) }
         val byDate = SleepDiaryStore(context, email).all().associateBy { it.date }
@@ -60,16 +68,27 @@ object SleepAnalysisSource {
 
         val trend = days.map { d -> byDate[d].let { TrendDay(d, it?.totalSleepMin, it?.efficiencyPct) } }
 
-        // 평소: the app can't read the server baseline yet (GET /analysis/risk metrics) → null.
-        val baseline: String? = null
+        // 평소 = the server's personal baseline median; status = whether the server flagged that metric.
+        val serverReady = server?.baselineStatus == "ready"
+        fun base(metric: String, fmt: (Double) -> String): String? =
+            server?.metrics?.get(metric)?.baselineMedian?.takeIf { serverReady }?.let(fmt)
+        fun status(metric: String): String? = when {
+            server == null || base(metric) { "" } == null -> null
+            metric in server.flaggedMetrics -> "평소와 달라요"
+            else -> "평소 범위"
+        }
+        fun minutes(v: Double) = "${Math.round(v)}분"
+        fun clock(anchor: Int) = { v: Double -> Modals.format12(java.time.LocalTime.of(0, 0).plusMinutes(((anchor + Math.round(v)) % 1440 + 1440) % 1440)) }
+        fun row(name: String, metric: String, fmt: (Double) -> String, recent: String?) =
+            CompareRow(name, base(metric, fmt), recent, status(metric))
         fun avgInt(xs: List<Int>) = if (xs.isEmpty()) null else Math.round(xs.average()).toInt()
         val comparisons = listOf(
-            CompareRow("총 수면시간", baseline, avgInt(week.map { it.totalSleepMin })?.let(::formatDuration)),
-            CompareRow("수면 효율", baseline, avgInt(week.map { it.efficiencyPct })?.let { "$it%" }),
-            CompareRow("잠들기까지 걸린 시간", baseline, avgInt(week.map { it.latencyMin })?.let { "${it}분" }),
-            CompareRow("취침 시각", baseline, averageClock(week.map { it.bedtime }, eveningBased = true)),
-            CompareRow("기상 시각", baseline, averageClock(week.map { it.wakeTime }, eveningBased = false)),
-            CompareRow("밤중 깨어 있던 시간", baseline, avgInt(week.mapNotNull { it.awakeMinutes })?.let { "${it}분" }),
+            row("총 수면시간", "sleep_duration", { formatDuration(Math.round(it).toInt()) }, avgInt(week.map { it.totalSleepMin })?.let(::formatDuration)),
+            row("수면 효율", "sleep_efficiency", { "${Math.round(it * 100)}%" }, avgInt(week.map { it.efficiencyPct })?.let { "$it%" }),
+            row("잠들기까지 걸린 시간", "sleep_onset_latency", ::minutes, avgInt(week.map { it.latencyMin })?.let { "${it}분" }),
+            row("취침 시각", "bedtime", clock(BED_ANCHOR_MIN), averageClock(week.map { it.bedtime }, eveningBased = true)),
+            row("기상 시각", "wake_time", clock(WAKE_ANCHOR_MIN), averageClock(week.map { it.wakeTime }, eveningBased = false)),
+            row("밤중 깨어 있던 시간", "wake_after_sleep_onset", ::minutes, avgInt(week.mapNotNull { it.awakeMinutes })?.let { "${it}분" }),
         )
 
         val habits = listOf(
@@ -77,7 +96,7 @@ object SleepAnalysisSource {
                 note = "사용 정보 연동 후 보여드려요."),
             HabitRow("주간 활동량 · 걸음 수", com.cbnu.nabi.R.drawable.ic_paw, HabitState.NEEDS_LINK,
                 note = "걸음 수 연동 후 보여드려요."),
-            yesNoHabit("카페인 섭취", com.cbnu.nabi.R.drawable.ic_sparkle, week) { it.caffeine },
+            yesNoHabit("오후 2시 이후 카페인", com.cbnu.nabi.R.drawable.ic_sparkle, week) { it.caffeine },
             yesNoHabit("낮잠", com.cbnu.nabi.R.drawable.ic_sun, week) { it.nap },
         )
 
@@ -89,10 +108,12 @@ object SleepAnalysisSource {
         )
     }
 
-    /** Yes/no habits from the diary: "N일 / 기록한 M일" — no amounts or durations are made up. */
-    private fun yesNoHabit(name: String, icon: Int, week: List<DiaryEntry>, yes: (DiaryEntry) -> Boolean): HabitRow =
-        if (week.isEmpty()) HabitRow(name, icon, HabitState.NO_RECORD, note = "최근 7일 수면 일지에 기록이 없어요.")
-        else HabitRow(name, icon, HabitState.VALUE, "${week.count(yes)}일 / 기록한 ${week.size}일", "최근 7일 수면 일지 기준")
+    /** Yes/no habits from the diary: "N일 / 기록한 M일" (days without that answer are not counted). */
+    private fun yesNoHabit(name: String, icon: Int, week: List<DiaryEntry>, yes: (DiaryEntry) -> Boolean?): HabitRow {
+        val answered = week.mapNotNull(yes)
+        return if (answered.isEmpty()) HabitRow(name, icon, HabitState.NO_RECORD, note = "최근 7일 수면 일지에 기록이 없어요.")
+        else HabitRow(name, icon, HabitState.VALUE, "${answered.count { it }}일 / 기록한 ${answered.size}일", "최근 7일 수면 일지 기준")
+    }
 
     /** Mean of "HH:mm" times; bedtimes after midnight count as the same evening. */
     private fun averageClock(times: List<String>, eveningBased: Boolean): String? {

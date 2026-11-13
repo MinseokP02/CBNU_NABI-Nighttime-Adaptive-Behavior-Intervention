@@ -109,6 +109,24 @@ class ApiClient(private val prefs: Prefs) {
         return JSONObject(request("POST", "/behavior-records", body))
     }
 
+    /** API-06. Newest first; the server caps [limit] at 100. */
+    fun sleepRecords(start: LocalDate, end: LocalDate, limit: Int = 100): List<SleepRecordItem> =
+        SleepRecordItem.list(JSONObject(request("GET", "/sleep-records?start_date=$start&end_date=$end&limit=$limit")))
+
+    /** API-08. Newest first; the server caps [limit] at 100. */
+    fun behaviorRecords(start: LocalDate, end: LocalDate, limit: Int = 100): List<BehaviorRecordItem> =
+        BehaviorRecordItem.list(JSONObject(request("GET", "/behavior-records?start_date=$start&end_date=$end&limit=$limit")))
+
+    // ---------- analysis / intervention (API-10, 12) ----------
+    /** Per-day values for the trend charts ([days] 7..60). */
+    fun trends(days: Int = 14): Trends = Trends.from(JSONObject(request("GET", "/analysis/trends?days=$days")))
+
+    fun risk(window: Int = 7): RiskAnalysis = RiskAnalysis.from(JSONObject(request("GET", "/analysis/risk?window=$window")))
+
+    /** With [includeExplanation] the backend asks the LLM server for a friendly explanation (fallback text otherwise). */
+    fun recommendation(includeExplanation: Boolean = true): Recommendation =
+        Recommendation.from(JSONObject(request("GET", "/interventions/recommendations?include_explanation=$includeExplanation")))
+
     // ---------- transport ----------
     private fun request(method: String, path: String, body: JSONObject? = null, auth: Boolean = true): String {
         val conn = try {

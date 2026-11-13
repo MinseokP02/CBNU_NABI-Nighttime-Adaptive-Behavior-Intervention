@@ -27,8 +27,9 @@ import java.time.ZonedDateTime
 /**
  * "오늘의 수면 기록" bottom sheet from the Figma design (FR-03-01~05).
  *
- * Saved to the server: bedtime, wake time, sleep onset latency, minutes awake at night, satisfaction.
- * Kept on this device only (no server field yet, user decision): awakening count, nap/caffeine/exercise.
+ * Saved to the server: bedtime, wake time, sleep onset latency, minutes awake at night, satisfaction
+ * (POST /sleep-records), and the previous day's habits (POST /behavior-records): caffeine after
+ * 오후 2시, nap minutes, exercise minutes. Kept on this device only (no server field): awakening count.
  */
 class SleepRecordSheet(
     private val activity: MainActivity,
@@ -60,6 +61,8 @@ class SleepRecordSheet(
     private lateinit var awakeningsInput: EditText
     private lateinit var awakeMinInput: EditText
     private lateinit var latencyText: TextView
+    private lateinit var napMinInput: EditText
+    private lateinit var exerciseMinInput: EditText
     private val errorText = activity.label("", 11f, Color.parseColor("#B45656"), bold = true)
     private val saveText = activity.label("기록 저장", 15f, Color.WHITE, bold = true)
     private val saveBtn = LinearLayout(activity)
@@ -228,9 +231,15 @@ class SleepRecordSheet(
         val c = card()
         c.addView(cardTitle("전날 생활 습관"), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
             .apply { bottomMargin = activity.dp(8) })
-        c.addView(row(null, "전날 낮잠 여부", yesNo({ nap }) { nap = it }, 0))
-        c.addView(row(null, "전날 카페인 섭취 여부", yesNo({ caffeine }) { caffeine = it }, 0))
-        c.addView(row(null, "전날 운동 여부", yesNo({ exercise }) { exercise = it }, 0))
+        napMinInput = numberInput("예: 30", existing?.napMin?.takeIf { it > 0 })
+        exerciseMinInput = numberInput("예: 30", existing?.exerciseMin?.takeIf { it > 0 })
+        val napMinRow = row(null, "낮잠 잔 시간", unitBox(napMinInput, "분"), 90)
+        val exerciseMinRow = row(null, "운동한 시간", unitBox(exerciseMinInput, "분"), 90)
+        c.addView(row(null, "전날 낮잠 여부", yesNo({ nap }) { nap = it; napMinRow.visibility = if (it) View.VISIBLE else View.GONE }, 0))
+        c.addView(napMinRow.apply { visibility = if (nap == true) View.VISIBLE else View.GONE })
+        c.addView(row(null, "오후 2시 이후 카페인 섭취", yesNo({ caffeine }) { caffeine = it }, 0))
+        c.addView(row(null, "전날 운동 여부", yesNo({ exercise }) { exercise = it; exerciseMinRow.visibility = if (it) View.VISIBLE else View.GONE }, 0))
+        c.addView(exerciseMinRow.apply { visibility = if (exercise == true) View.VISIBLE else View.GONE })
         return c
     }
 
@@ -306,6 +315,11 @@ class SleepRecordSheet(
         if (sat == null || n == null || c == null || e == null) return showError("수면 만족도와 생활 습관 항목을 모두 선택해 주세요.")
         if (awakeMinInput.text.isNotEmpty() && awakeMin == null || awakeningsInput.text.isNotEmpty() && awakenings == null)
             return showError("밤중 각성은 숫자로 입력해 주세요.")
+        // 예 → minutes are required (the server analyses durations); 아니요 → 0분.
+        val napMin = if (n) napMinInput.text.toString().toIntOrNull() else 0
+        val exerciseMin = if (e) exerciseMinInput.text.toString().toIntOrNull() else 0
+        if (napMin == null || n && napMin !in 1..1440) return showError("낮잠 잔 시간을 분 단위로 입력해 주세요.")
+        if (exerciseMin == null || e && exerciseMin !in 1..1440) return showError("운동한 시간을 분 단위로 입력해 주세요.")
 
         val zone = ZoneId.systemDefault()
         val wakeAt = ZonedDateTime.of(date, wake, zone)
@@ -326,10 +340,22 @@ class SleepRecordSheet(
                 outOfBedTime = wakeAt,
                 sleepQuality = sat,
             )
+            // The habits are for the day before the wake-up morning. A failure here must not undo the
+            // saved sleep record, so it is reported separately.
+            runCatching {
+                activity.api.createBehaviorRecord(
+                    date = date.minusDays(1),
+                    caffeineAfterCutoff = c,
+                    napDurationMin = napMin,
+                    exerciseDurationMin = exerciseMin,
+                )
+            }.fold({ true }, { (it as? ApiException)?.code == "DUPLICATE_RECORD" })
         }) { r ->
-            r.onSuccess {
+            r.onSuccess { behaviorSaved ->
                 store.put(DiaryEntry(date, "%02d:%02d".format(bed.hour, bed.minute), "%02d:%02d".format(wake.hour, wake.minute),
-                    awakenings, awakeMin, latency, sat, n, c, e, serverSaved = true))
+                    awakenings, awakeMin, latency, sat, n, napMin, c, e, exerciseMin, serverSaved = true, behaviorSaved = behaviorSaved))
+                if (!behaviorSaved) android.widget.Toast.makeText(activity,
+                    "수면 기록은 저장했지만 생활 습관은 서버에 저장하지 못했어요.", android.widget.Toast.LENGTH_LONG).show()
                 setSaving("저장 완료", enabled = false)
                 saveBtn.postDelayed({ sheet.dismiss(); onSaved() }, 650)
             }.onFailure {
