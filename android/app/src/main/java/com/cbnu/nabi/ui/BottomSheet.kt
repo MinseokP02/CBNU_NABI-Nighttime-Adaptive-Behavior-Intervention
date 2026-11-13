@@ -99,6 +99,20 @@ class BottomSheet(private val activity: Activity, title: String, subtitle: Strin
 
     fun dismiss() = dialog.dismiss()
 
+    /**
+     * Tutorial: the sheet can't be dragged, tapped outside or backed out of; back goes to [onBack]
+     * (the previous tutorial step). The dim matches the tutorial's own dim.
+     */
+    fun lockForTutorial(onBack: () -> Unit) {
+        dialog.setCancelable(false)
+        dialog.window?.setDimAmount(0.62f)
+        dialog.setOnKeyListener { _, code, ev ->
+            if (code != android.view.KeyEvent.KEYCODE_BACK) return@setOnKeyListener false
+            if (ev.action == android.view.KeyEvent.ACTION_UP) onBack()
+            true
+        }
+    }
+
     /** Start at the top of the content (e.g. right after [show]). */
     fun scrollToTop() = scroll.post { scroll.scrollTo(0, 0) }
 

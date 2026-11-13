@@ -37,12 +37,15 @@ class SleepDiaryPanel(private val activity: MainActivity) {
 
     val view: View
 
+    /** "+ 기록하기" (the tutorial points at it). */
+    val recordButton = LinearLayout(activity)
+
     init {
         val page = activity.page()
         // Row 1: title + "+ 기록하기" (vertically centred on the title).
         val titleRow = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         titleRow.addView(activity.label("나의 수면 일지", 26f, title = true), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        titleRow.addView(LinearLayout(activity).apply {
+        titleRow.addView(recordButton.apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
             setPadding(activity.dp(11), 0, activity.dp(13), 0)

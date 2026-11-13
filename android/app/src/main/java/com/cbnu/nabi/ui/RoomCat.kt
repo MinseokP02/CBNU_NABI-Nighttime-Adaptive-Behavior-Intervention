@@ -25,6 +25,9 @@ class RoomCat(private val activity: Activity, private val floor: FrameLayout) : 
 
     val isShown: Boolean get() = cat != null
 
+    /** The box around the cat's body that takes touches (moves with the cat), or null when hidden. */
+    val touchArea: View? get() = touch
+
     @SuppressLint("ClickableViewAccessibility")
     fun show() {
         if (cat != null) return
@@ -82,6 +85,7 @@ class RoomCat(private val activity: Activity, private val floor: FrameLayout) : 
     override fun screenSize(): Point = Point(floor.width, floor.height)
 
     override fun openChat() {
-        activity.startActivity(Intent(activity, ChatActivity::class.java))
+        activity.startActivity(Intent(activity, ChatActivity::class.java)
+            .putExtra(ChatActivity.EXTRA_PREVIEW, NabiTutorial.chatPreview))
     }
 }

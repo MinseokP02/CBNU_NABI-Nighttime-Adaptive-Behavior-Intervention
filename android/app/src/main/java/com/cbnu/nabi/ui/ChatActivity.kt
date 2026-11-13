@@ -44,11 +44,14 @@ class ChatActivity : Activity() {
     private lateinit var backdrop: View
     private var sending = false
     private var closing = false
+    /** Opened from the tutorial (꾹 누르기): show the chat, but nothing can be typed or sent. */
+    private var preview = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         prefs = Prefs(this)
         api = ApiClient(prefs)
+        preview = intent.getBooleanExtra(EXTRA_PREVIEW, false)
         if (!prefs.loggedIn) {
             startActivity(Intent(this, MainActivity::class.java))
             finish()
@@ -215,6 +218,11 @@ class ChatActivity : Activity() {
         }
         addView(send, LinearLayout.LayoutParams(dp(44), dp(44)).apply { leftMargin = dp(8) })
         updateSend()
+        if (preview) {
+            input.isEnabled = false
+            input.isFocusable = false
+            input.hint = "튜토리얼 중에는 메시지를 보낼 수 없어요"
+        }
     }
 
     private fun updateSend() {
@@ -270,6 +278,7 @@ class ChatActivity : Activity() {
     private fun isCrisis(m: ChatMessage) = !m.fromUser && m.safetyStatus == "CRISIS"
 
     private fun sendMessage() {
+        if (preview) return
         val text = input.text.toString().trim()
         if (text.isEmpty() || sending) return
         if (text.length > 1000) { addSystem("메시지는 1000자까지 보낼 수 있어요"); return }
@@ -357,4 +366,9 @@ class ChatActivity : Activity() {
     }
 
     private fun scrollToEnd() = scroll.post { scroll.fullScroll(ScrollView.FOCUS_DOWN) }
+
+    companion object {
+        /** Tutorial preview: the panel opens as usual, but typing and sending are turned off. */
+        const val EXTRA_PREVIEW = "chat_preview"
+    }
 }

@@ -61,6 +61,17 @@ class HomePanel(private val activity: MainActivity) {
 
     private lateinit var top: LinearLayout
     private lateinit var fab: View
+
+    // Views the tutorial points at (read only — the tutorial never clicks them).
+    lateinit var missionButton: View
+        private set
+    lateinit var storeButton: View
+        private set
+    lateinit var analysisCard: View
+        private set
+    val catInRoom: Boolean get() = CatPresence.showInRoom && roomCat.touchArea != null
+    /** The cat in the room, or the 나비 부르기 button while the cat is out. */
+    val tutorialCatTarget: View get() = roomCat.touchArea?.takeIf { CatPresence.showInRoom } ?: fab
     private var decorator: RoomDecorator? = null
     private val itemViews: Map<ShopStore.Slot, ImageView>
         get() = mapOf(ShopStore.Slot.RUG to rug, ShopStore.Slot.TOWER to tower, ShopStore.Slot.PLANT to plant)
@@ -150,6 +161,7 @@ class HomePanel(private val activity: MainActivity) {
             contentDescription = "오늘의 미션"
             setOnClickListener { openMissions() }
         }
+        missionButton = missionBtn
         actions.addView(missionBtn, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, activity.dp(32))
             .apply { leftMargin = activity.dp(6) })
         // shop
@@ -161,6 +173,7 @@ class HomePanel(private val activity: MainActivity) {
             contentDescription = "상점 열기"
             setOnClickListener { activity.startActivity(Intent(activity, ShopActivity::class.java)) }
         }
+        storeButton = store
         actions.addView(store, LinearLayout.LayoutParams(activity.dp(32), activity.dp(32)).apply { leftMargin = activity.dp(6) })
         row.addView(actions)
         return row
@@ -219,6 +232,7 @@ class HomePanel(private val activity: MainActivity) {
         card.addView(View(activity).apply { setBackgroundColor(Color.argb(51, 185, 155, 137)) },
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, activity.dp(1)))
         card.addView(analysisBody, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, activity.dp(92)))
+        analysisCard = card
         return card
     }
 
@@ -293,6 +307,15 @@ class HomePanel(private val activity: MainActivity) {
         p.render(lastState)
         analysis = p
         p.show()
+    }
+
+    /** The open analysis sheet (the tutorial reads its cards). */
+    val tutorialAnalysis: SleepAnalysisPanel? get() = analysis
+
+    /** Tutorial: open the analysis sheet (if not open yet) and lock it while it is explained. */
+    fun openAnalysisForTutorial(onBack: () -> Unit) {
+        if (analysis == null) openAnalysis()
+        analysis?.lockForTutorial(onBack)
     }
 
     fun closeAnalysis() {

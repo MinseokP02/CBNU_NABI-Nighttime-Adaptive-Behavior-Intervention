@@ -41,12 +41,22 @@ class SleepAnalysisPanel(
     }
     fun dismiss() = sheet.dismiss()
 
+    // For the tutorial (read only).
+    val sheetWindow: ViewGroup? get() = sheet.decorView as? ViewGroup
+    var statusView: View? = null
+        private set
+    var trendView: View? = null
+        private set
+    var compareView: View? = null
+        private set
+    fun lockForTutorial(onBack: () -> Unit) = sheet.lockForTutorial(onBack)
+
     fun render(state: UserState?) {
         val a = SleepAnalysisSource.build(activity, activity.prefs.email, state)
         col.root.removeAllViews()
-        col.add(statusCard(a))
-        col.add(trendCard(a))
-        col.add(compareCard(a))
+        statusView = col.add(statusCard(a))
+        trendView = col.add(trendCard(a))
+        compareView = col.add(compareCard(a))
         col.add(habitsCard(a))
     }
 

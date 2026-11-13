@@ -40,6 +40,15 @@ class ProfilePanel(private val activity: MainActivity, private val onLogout: () 
     /** Re-read stored values and permissions (on resume, after the home state loads). */
     fun update() = show(page)
 
+    // Views the tutorial points at (rebuilt with the page, so always read them fresh).
+    var goalCard: View? = null
+        private set
+    var helpRow: View? = null
+        private set
+
+    /** Tutorial: make sure the main page (수면 목표, 도움말) is the one showing. */
+    fun showMainForTutorial() { if (page != Page.MAIN) show(Page.MAIN) }
+
     /** System back: sub-page → main. Returns true if handled. */
     fun handleBack(): Boolean {
         if (page == Page.MAIN) return false
@@ -195,6 +204,7 @@ class ProfilePanel(private val activity: MainActivity, private val onLogout: () 
             setOnClickListener { RecommendedScheduleModal(activity, onApplied = { show(Page.MAIN) }).show() }
         }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = activity.dp(9) })
         col.add(goal)
+        goalCard = goal
 
         // 초기 ISI 평가 결과 (FR-07-01)
         val isi = card()
@@ -240,7 +250,9 @@ class ProfilePanel(private val activity: MainActivity, private val onLogout: () 
             settingRow(R.drawable.ic_heart, "만질 때 진동 반응", "골골송·하악질을 진동으로 느껴요.", hapticToggle),
             settingRow(R.drawable.ic_shield, "데이터 접근 권한", "건강·활동·사용 정보 권한을 확인해요.", chevron()) { openPermissions() },
             settingRow(R.drawable.ic_bell, "알림 설정", "수면 및 활동 안내를 설정해요.", chevron()) { show(Page.NOTIFICATIONS) },
-        ), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = activity.dp(10) })
+            settingRow(R.drawable.ic_help, "도움말", "나비 사용법을 튜토리얼로 다시 볼 수 있어요.", chevron()) { activity.startTutorial() }
+                .also { helpRow = it },
+        ),LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = activity.dp(10) })
         col.add(settings)
     }
 

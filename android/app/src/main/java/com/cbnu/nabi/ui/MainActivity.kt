@@ -158,16 +158,60 @@ class MainActivity : Activity() {
     /** Back from a 마이페이지 sub-page or the decorate mode returns before leaving the app. */
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
+        // While the tutorial runs, back only goes to the previous step (never leaves the app).
+        tutorial?.let { it.back(); return }
         if (profilePanel?.handleBack() == true) return
         if (homePanel?.handleBack() == true) return
         @Suppress("DEPRECATION")
         super.onBackPressed()
     }
 
+    // ---------------- 튜토리얼 (도움말) ----------------
+    /** Screens a tutorial step can ask for. On a tablet all three are already side by side. */
+    enum class Screen { HOME, DIARY, PROFILE }
+
+    private var tutorial: TutorialOverlay? = null
+    val tutorialHome: HomePanel? get() = homePanel
+    val tutorialDiary: SleepDiaryPanel? get() = sleepPanel
+    val tutorialProfile: ProfilePanel? get() = profilePanel
+
+    /**
+     * Start the coach-mark tutorial over the real screens. From 마이페이지 › 도움말 ([returnHere] =
+     * true) it comes back to the tab the user was on; the automatic first run ends on 홈.
+     */
+    fun startTutorial(returnHere: Boolean = true) {
+        if (tutorial != null || !prefs.loggedIn || homePanel == null) return
+        val from = currentTab
+        tutorial = TutorialOverlay(this, NabiTutorial.steps()) {
+            tutorial = null
+            homePanel?.takeIf { it.tutorialAnalysis != null }?.closeAnalysis()
+            TutorialPrefs.markDone(this) // finished or skipped; watching again never resets it
+            if (tabButtons.isNotEmpty()) selectTab(if (returnHere) from else Tab.HOME)
+        }.also { it.start() }
+    }
+
+    /** [analysisSheet]: the step explains the 나의 수면 분석 sheet, so open it; otherwise close it. */
+    fun showScreenForTutorial(s: Screen, analysisSheet: Boolean = false) {
+        if (s == Screen.PROFILE) profilePanel?.showMainForTutorial()
+        if (tabButtons.isNotEmpty()) selectTab(when (s) { Screen.HOME -> Tab.HOME; Screen.DIARY -> Tab.SLEEP; Screen.PROFILE -> Tab.PROFILE })
+        if (analysisSheet) homePanel?.openAnalysisForTutorial { tutorial?.back() }
+        else if (homePanel?.tutorialAnalysis != null) homePanel?.closeAnalysis()
+    }
+
+    /** Release builds only: the first time the main screens are ready on this device. */
+    private fun maybeAutoStartTutorial() {
+        if (!TutorialConfig.AUTO_START_ON_FIRST_USE || TutorialPrefs.isDone(this)) return
+        // Wait until the panels are laid out and the room cat has appeared.
+        window.decorView.postDelayed({
+            if (!isFinishing && !isDestroyed && prefs.loggedIn && !TutorialPrefs.isDone(this)) startTutorial(returnHere = false)
+        }, 900)
+    }
+
     // ---------------- called by panels ----------------
 
     /** Go back to the login screen and drop the logged-in panels so the next user starts clean. */
     fun showLogin() {
+        tutorial?.end()
         sleepPanel = null
         homePanel = null
         profilePanel = null
@@ -225,6 +269,7 @@ class MainActivity : Activity() {
 
     private fun render() {
         setContentView(if (prefs.loggedIn) buildMain() else buildLogin())
+        if (prefs.loggedIn && tutorial == null) maybeAutoStartTutorial()
     }
 
     private fun buildLogin(): View {
