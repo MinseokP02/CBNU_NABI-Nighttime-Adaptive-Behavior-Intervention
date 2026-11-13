@@ -66,12 +66,13 @@ object NabiAlarms {
         set(context.applicationContext, Kind.WAKE, LocalDateTime.now().plusMinutes(SNOOZE_MIN))
     }
 
-    /** Next time [kind] should go off, or null if its goal time isn't set. */
+    /** Next time [kind] should go off, or null if the sleep goal isn't set. */
     fun nextTime(kind: Kind, store: ProfileStore, now: LocalDateTime = LocalDateTime.now()): LocalDateTime? {
         val time = when (kind) {
             Kind.SLEEP_PREP -> store.goalBedtime?.let(LocalTime::parse)?.minusMinutes(SLEEP_PREP_LEAD_MIN)
             Kind.DIARY -> store.goalWakeTime?.let(LocalTime::parse)?.plusMinutes(DIARY_DELAY_MIN)
-            Kind.MISSION -> MISSION_TIME
+            // Fixed time, but like the others only once the user has set a sleep goal.
+            Kind.MISSION -> MISSION_TIME.takeIf { store.goalBedtime != null && store.goalWakeTime != null }
             Kind.WAKE -> store.goalWakeTime?.let(LocalTime::parse)
         } ?: return null
         val today = now.toLocalDate().atTime(time)
