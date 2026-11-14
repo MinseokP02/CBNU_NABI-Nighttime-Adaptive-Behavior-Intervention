@@ -60,6 +60,7 @@ class MainActivity : Activity() {
         lockPortraitOnPhones()
         CatPresence.install(application)
         current = java.lang.ref.WeakReference(this)
+        DemoMode.init(this, intent) // debug builds only
         prefs = Prefs(this)
         api = ApiClient(prefs)
         currentTab = savedInstanceState?.getString(KEY_TAB)
@@ -144,7 +145,7 @@ class MainActivity : Activity() {
      * explanation); the app only shows it, at most once a day and never during the tutorial.
      */
     fun maybeShowRecommendation() {
-        if (!prefs.loggedIn || tutorial != null || recommendationLoading) return
+        if (!prefs.loggedIn || tutorial != null || recommendationLoading || DemoMode.active) return
         val store = MissionProposalStore(this, prefs.email)
         if (store.shownToday() != null) return
         recommendationLoading = true
@@ -410,6 +411,14 @@ class MainActivity : Activity() {
 
     private fun selectTab(tab: Tab) {
         currentTab = tab
+        if (DemoMode.active && tutorial == null) {
+            // Debug demo: back on 홈 after looking at the diary → 나비 offers the demo mission once.
+            if (tab == Tab.SLEEP) DemoMode.diaryVisited = true
+            else if (tab == Tab.HOME && DemoMode.diaryVisited && !DemoMode.proposalShown) {
+                DemoMode.proposalShown = true
+                window.decorView.postDelayed({ if (!isFinishing) showMissionProposal(DemoMode.proposal()) }, 700)
+            }
+        }
         for ((t, pane) in tabPanes) pane.visibility = if (t == tab) View.VISIBLE else View.GONE
         for ((t, item) in tabButtons) {
             val selected = t == tab

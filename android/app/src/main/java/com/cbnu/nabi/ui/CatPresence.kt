@@ -66,6 +66,11 @@ object CatPresence : Application.ActivityLifecycleCallbacks {
             // The app went to the background: the cat walks back out onto the home screen.
             inRoom = false
             onChanged?.invoke()
+            // Debug demo: the demo mission is done and the user left for another app → wind-down.
+            if (DemoMode.active && DemoMode.windDownArmed) {
+                DemoMode.windDownArmed = false
+                WindDown.start(activity, DemoMode.WIND_DOWN_DELAY_MS)
+            }
         }
         push()
     }

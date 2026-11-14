@@ -54,6 +54,7 @@ class LoginPanel(private val activity: MainActivity, private val onLoggedIn: () 
 
         server = ServerSection(activity, page, "서버 설정 (개발용)")
         view = activity.scrollPage(page)
+        DemoMode.prefillLogin(activity, emailInput, pwInput)
     }
 
     private fun login() {
@@ -90,6 +91,7 @@ class LoginPanel(private val activity: MainActivity, private val onLoggedIn: () 
         activity.bg({
             activity.api.register(email, pw, score, catName)
             activity.api.login(email, pw)
+            DemoMode.seedAfterRegister(activity.api) // debug demo only; no-op otherwise
         }) { r ->
             r.onSuccess {
                 // Shown in 마이페이지 until the app can read GET /users/me (isi_score).

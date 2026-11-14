@@ -373,6 +373,7 @@ class HomePanel(private val activity: MainActivity) {
                     proposalStore().complete(m.proposal)
                     Toast.makeText(activity, "미션을 완료했어요", Toast.LENGTH_SHORT).show()
                     onMissionsChanged()
+                    if (DemoMode.active && m.proposal.id == DemoMode.PROPOSAL_ID) onDemoMissionDone()
                 }
             }
             body.add(card.root)
@@ -470,12 +471,24 @@ class HomePanel(private val activity: MainActivity) {
 
     private fun matchParent() = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
 
-    /** Day 06:00–20:00, otherwise night (Figma). */
+    /** Day 06:00–20:00, otherwise night (Figma). The debug demo stays in daylight. */
     private fun updateScene() {
         val h = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
-        val day = h in 6..19
+        val day = DemoMode.active || h in 6..19 // the demo is filmed in daylight whatever the clock says
         dayBg.animate().alpha(if (day) 1f else 0f).setDuration(500).start()
         nightBg.animate().alpha(if (day) 0f else 1f).setDuration(500).start()
+    }
+
+    /**
+     * Debug demo only: the demo mission was completed. The cat cheers; once the user leaves the app
+     * the bedtime wind-down (notification + dimming over other apps) follows ([WindDown]).
+     */
+    private fun onDemoMissionDone() {
+        DemoMode.windDownArmed = true
+        root.postDelayed({
+            missionSheet?.dismiss()
+            catReact(CatAction.HAPPY, "잘했다냥! 이제 잘 준비하자냥")
+        }, 500)
     }
 
     /**
