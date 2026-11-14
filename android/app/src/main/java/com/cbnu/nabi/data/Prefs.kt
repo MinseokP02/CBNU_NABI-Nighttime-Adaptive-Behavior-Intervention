@@ -2,6 +2,7 @@ package com.cbnu.nabi.data
 
 import android.content.Context
 import com.cbnu.nabi.BuildConfig
+import com.cbnu.nabi.alarm.NabiAlarms
 
 /**
  * Small key-value store for app settings and the login token.
@@ -10,7 +11,8 @@ import com.cbnu.nabi.BuildConfig
  */
 class Prefs(context: Context) {
 
-    private val sp = context.applicationContext.getSharedPreferences(NAME, Context.MODE_PRIVATE)
+    private val app = context.applicationContext
+    private val sp = app.getSharedPreferences(NAME, Context.MODE_PRIVATE)
 
     var baseUrl: String
         get() = sp.getString(K_URL, null) ?: BuildConfig.DEFAULT_BASE_URL
@@ -46,6 +48,8 @@ class Prefs(context: Context) {
 
     fun logout() {
         sp.edit().remove(K_TOKEN).remove(K_CONV).remove(K_EMAIL).apply()
+        // The reminders belong to the account that logged out.
+        NabiAlarms.cancelAll(app)
     }
 
     companion object {
