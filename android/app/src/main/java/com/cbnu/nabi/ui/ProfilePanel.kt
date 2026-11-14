@@ -267,12 +267,7 @@ class ProfilePanel(private val activity: MainActivity, private val onLogout: () 
     }
 
     /** Standard ISI bands (same as the Figma design). Shown with the "not a diagnosis" note. */
-    private fun interpretIsi(score: Int) = when {
-        score <= 7 -> "임상적으로 유의한 불면 증상 없음"
-        score <= 14 -> "역치하 불면"
-        score <= 21 -> "중등도 임상적 불면"
-        else -> "심한 임상적 불면"
-    }
+    private fun interpretIsi(score: Int) = IsiSurvey.band(score)
 
     /** Overlay switch: existing PetService start/stop. Without the permission, explain and offer the settings. */
     private fun setOverlay(on: Boolean): Boolean {
