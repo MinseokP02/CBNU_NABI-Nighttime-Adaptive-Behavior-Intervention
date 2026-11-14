@@ -50,6 +50,18 @@ object DemoMode {
         if (intent?.hasExtra(EXTRA) == true) sp.edit().putBoolean(K_ON, intent.getBooleanExtra(EXTRA, false)).commit()
         active = sp.getBoolean(K_ON, false)
         diaryVisited = false; proposalShown = false; windDownArmed = false
+        // Switching the demo on also lets 나비 out onto the phone's home screen (overlay cat), so the
+        // video can open on the cat walking over the launcher before the app is opened.
+        if (active && intent?.getBooleanExtra(EXTRA, false) == true &&
+            android.provider.Settings.canDrawOverlays(context) && !com.cbnu.nabi.pet.PetService.isRunning) {
+            context.startForegroundService(Intent(context, com.cbnu.nabi.pet.PetService::class.java))
+        }
+    }
+
+    /** After sign-up: the overlay cat follows the user into the app and appears in the room. */
+    fun bringCatIntoRoom(activity: MainActivity) {
+        if (!active) return
+        activity.window.decorView.postDelayed({ CatPresence.enterRoom() }, 600)
     }
 
     fun prefillLogin(context: Context, email: EditText, password: EditText) {

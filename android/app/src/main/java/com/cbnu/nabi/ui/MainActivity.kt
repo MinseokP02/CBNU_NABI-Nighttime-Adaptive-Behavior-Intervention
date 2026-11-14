@@ -299,6 +299,7 @@ class MainActivity : Activity() {
         NabiAlarms.reschedule(this)
         render()
         homePanel?.refresh()
+        DemoMode.bringCatIntoRoom(this) // debug demo only
     }
 
     private fun logout() {
