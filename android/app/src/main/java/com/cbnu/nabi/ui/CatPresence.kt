@@ -55,6 +55,7 @@ object CatPresence : Application.ActivityLifecycleCallbacks {
     private fun push() = PetService.setHiddenInApp(started > 0)
 
     override fun onActivityStarted(activity: Activity) {
+        if (started == 0) WindDown.clear() // back in NABI: no dark layer over our own screens
         started++
         push()
     }
