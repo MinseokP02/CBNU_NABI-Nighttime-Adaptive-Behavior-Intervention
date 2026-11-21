@@ -1,5 +1,7 @@
 package com.cbnu.nabi.ui
 
+
+import com.cbnu.nabi.tr
 import android.Manifest
 import android.app.Activity
 import android.content.pm.PackageManager
@@ -39,10 +41,12 @@ class MainActivity : Activity() {
     lateinit var api: ApiClient
         private set
 
-    private enum class Tab(val label: String, val icon: Int) {
-        SLEEP("수면 일지", R.drawable.ic_book),
-        HOME("홈", R.drawable.ic_home),
-        PROFILE("마이페이지", R.drawable.ic_user),
+    private enum class Tab(private val labelRes: Int, val icon: Int) {
+        SLEEP(R.string.sleep_diary, R.drawable.ic_book),
+        HOME(R.string.home, R.drawable.ic_home),
+        PROFILE(R.string.my_page, R.drawable.ic_user);
+
+        val label: String get() = tr(labelRes)
     }
 
     private var loginPanel: LoginPanel? = null
@@ -131,7 +135,7 @@ class MainActivity : Activity() {
             if (response == ProposalResponse.ACCEPTED) when (p.kind.flow) {
                 // A server mission is already in GET /missions/active: just reload 나의 미션.
                 ProposalFlow.TRACKABLE -> {
-                    Toast.makeText(this, "나의 미션에 추가했어요", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, tr(R.string.added_to_my_missions), Toast.LENGTH_SHORT).show()
                     if (p.serverMissionId != null) homePanel?.refresh() else homePanel?.onMissionsChanged()
                 }
                 ProposalFlow.SLEEP_DIARY -> openSleepRecord()
@@ -185,7 +189,7 @@ class MainActivity : Activity() {
         // there emits an androidx.activity-only intent, which a plain Activity cannot launch.
         if (Build.VERSION.SDK_INT >= 34) return requestPermissions(perms.toTypedArray(), REQ_HEALTH)
         runCatching { startActivityForResult(com.cbnu.nabi.data.HealthConnectSource.permissionIntent(this), REQ_HEALTH) }
-            .onFailure { Toast.makeText(this, "Health Connect 권한 화면을 열지 못했어요", Toast.LENGTH_SHORT).show() }
+            .onFailure { Toast.makeText(this, tr(R.string.couldn_t_open_health_connect_permission), Toast.LENGTH_SHORT).show() }
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
@@ -206,9 +210,9 @@ class MainActivity : Activity() {
     private fun onHealthResult(granted: Set<String>) {
         val all = granted.containsAll(com.cbnu.nabi.data.HealthConnectSource.PERMISSIONS)
         Toast.makeText(this, when {
-            all -> "Health Connect에 연결했어요"
-            granted.isNotEmpty() -> "일부 Health Connect 권한만 허용되었어요"
-            else -> "Health Connect 권한이 허용되지 않았어요"
+            all -> tr(R.string.connected_to_health_connect)
+            granted.isNotEmpty() -> tr(R.string.only_some_health_connect_permissions_were)
+            else -> tr(R.string.health_connect_permissions_were_not_allowed)
         }, Toast.LENGTH_SHORT).show()
         onDataAccessChanged?.invoke()
         profilePanel?.update()
@@ -319,7 +323,7 @@ class MainActivity : Activity() {
     /** "기록하기" on the home analysis card: the sleep record sheet (FR-03). */
     fun openSleepRecord(date: java.time.LocalDate = java.time.LocalDate.now()) {
         SleepRecordSheet(this, date) {
-            Toast.makeText(this, "수면 기록을 저장했어요", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, tr(R.string.sleep_record_saved), Toast.LENGTH_SHORT).show()
             homePanel?.refresh()
             sleepPanel?.refresh()
         }.show()

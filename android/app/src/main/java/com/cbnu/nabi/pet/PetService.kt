@@ -1,5 +1,7 @@
 package com.cbnu.nabi.pet
 
+
+import com.cbnu.nabi.tr
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -179,19 +181,19 @@ class PetService : Service(), PetHost {
 
     private fun localWalkProposal() = MissionProposal(
         id = "overlay-walk-${java.time.LocalDate.now()}", kind = ProposalKind.WALK,
-        title = "잠깐 같이 산책할래냥?",
-        description = "한동안 화면만 봤어요.\n15분만 걸어도 밤에 잠이 잘 와요. 나비가 길을 골라 줄게요!",
+        title = tr(R.string.want_to_go_for_walk_with),
+        description = tr(R.string.you_ve_been_on_your_screen),
     )
 
     private fun showWalkSuggestion(p: MissionProposal = localWalkProposal()) {
         if (walkCard?.isShowing == true || !prefs.loggedIn) return
         walkPrefs.edit().putString("day", java.time.LocalDate.now().toString()).apply()
-        cat?.applyAction(CatAction.WALK, "산책 갈래냥?")
+        cat?.applyAction(CatAction.WALK, tr(R.string.walk_time_meow))
         val store = MissionProposalStore(this, prefs.email)
         walkCard = WalkSuggestionCard(this, wm, p.title, p.description,
             onAccept = {
                 store.record(p, ProposalResponse.ACCEPTED) // 나의 미션: 진행 중
-                cat?.applyAction(CatAction.HAPPY, "좋아, 가자냥!")
+                cat?.applyAction(CatAction.HAPPY, tr(R.string.yay_let_s_go_meow))
                 // Into the NABI app first, which then opens the 산책 page (back returns to the app).
                 startActivity(Intent(this, MainActivity::class.java)
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
@@ -199,7 +201,7 @@ class PetService : Service(), PetHost {
             },
             onLater = {
                 store.record(p, ProposalResponse.LATER)
-                cat?.applyAction(CatAction.SIT, "알았어, 나중에 가자냥")
+                cat?.applyAction(CatAction.SIT, tr(R.string.okay_let_s_go_later_meow))
             },
         ).also { it.show() }
     }
@@ -278,9 +280,9 @@ class PetService : Service(), PetHost {
         if (s.action == lastServerAction) return
         lastServerAction = s.action
         val line = when (s.reason) {
-            "MISSION_COMPLETED" -> "미션 해냈다냥! 최고야"
-            "SLEEP_RISK" -> "요즘 잠이 힘들지? 옆에 있을게"
-            "NIGHT_TIME" -> "이제 잘 시간이다냥… 하암"
+            "MISSION_COMPLETED" -> tr(R.string.mission_done_meow_you_re_best)
+            "SLEEP_RISK" -> tr(R.string.sleep_s_been_hard_lately_i)
+            "NIGHT_TIME" -> tr(R.string.time_for_bed_meow_yawn)
             else -> null
         }
         view.applyAction(s.action, line)
@@ -379,8 +381,8 @@ class PetService : Service(), PetHost {
     private fun startAsForeground() {
         val nm = getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(
-            NotificationChannel(CHANNEL, "나비", NotificationManager.IMPORTANCE_LOW).apply {
-                description = "나비가 화면에 있는 동안 표시돼요"
+            NotificationChannel(CHANNEL, tr(R.string.nabi), NotificationManager.IMPORTANCE_LOW).apply {
+                description = tr(R.string.shown_while_nabi_is_on_your)
                 setShowBadge(false)
             }
         )
@@ -396,12 +398,12 @@ class PetService : Service(), PetHost {
         val icon = Icon.createWithResource(this, R.drawable.ic_cat)
         val n = Notification.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_cat)
-            .setContentTitle("나비가 화면에 있어요")
-            .setContentText("나비를 꾹 누르면 대화할 수 있어요")
+            .setContentTitle(tr(R.string.nabi_is_on_your_screen))
+            .setContentText(tr(R.string.long_press_nabi_to_chat))
             .setContentIntent(open)
             .setOngoing(true)
-            .addAction(Notification.Action.Builder(icon, "대화하기", chat).build())
-            .addAction(Notification.Action.Builder(icon, "숨기기", stop).build())
+            .addAction(Notification.Action.Builder(icon, tr(R.string.chat), chat).build())
+            .addAction(Notification.Action.Builder(icon, tr(R.string.hide), stop).build())
             .build()
         if (Build.VERSION.SDK_INT >= 34)
             startForeground(NOTIF_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)

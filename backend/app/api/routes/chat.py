@@ -4,6 +4,7 @@ from fastapi import APIRouter, Query
 
 from app.api.deps import CurrentUser, DbSession
 from app.core.config import get_settings
+from app.core.i18n import LanguageDep
 from app.core.rate_limit import chat_limiter
 from app.schemas.chat import ChatHistoryResponse, ChatRequest, ChatResponse
 from app.services.chat_service import history, send_message
@@ -12,9 +13,9 @@ router = APIRouter()
 
 
 @router.post("/messages", response_model=ChatResponse)
-def post_message(payload: ChatRequest, db: DbSession, user: CurrentUser) -> dict:
+def post_message(payload: ChatRequest, db: DbSession, user: CurrentUser, lang: LanguageDep) -> dict:
     chat_limiter.check(str(user.user_id), get_settings().chat_rate_limit_per_minute)
-    return send_message(db, user, payload.message, payload.conversation_id)
+    return send_message(db, user, payload.message, payload.conversation_id, lang)
 
 
 @router.get("/history", response_model=ChatHistoryResponse)

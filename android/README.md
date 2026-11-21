@@ -11,28 +11,31 @@ Android 앱 ──HTTP(JWT)──▶ backend :8000 /api/v1 ──X-Internal-Toke
 
 ## 실행
 
-1. 서버를 먼저 켭니다 (루트 폴더에서):
+1. 서버를 먼저 켭니다 (루트 폴더에서, Docker Desktop 필요):
    ```powershell
-   docker compose up -d db llm-server
-   docker compose run --rm backend alembic upgrade head
-   docker compose run --rm backend python -m app.seed.seed_interventions
-   docker compose up -d --build backend
+   powershell -ExecutionPolicy Bypass -File scripts\start-server.ps1
    ```
 2. Android Studio → File → Open → 이 `android` 폴더를 엽니다. Gradle 동기화가 끝날 때까지 기다립니다.
 3. Run ▶ 으로 에뮬레이터나 폰에 설치합니다.
-4. 앱에서 서버 주소 입력 → **연결 확인** → 회원가입/로그인 → **다른 앱 위에 표시 권한 허용** → **나비 부르기**.
+4. 회원가입/로그인 → **다른 앱 위에 표시 권한 허용** → **나비 부르기**. 서버 주소는 앱에서 입력하지 않습니다.
 
 ### 서버 주소
 
-백엔드는 `127.0.0.1:8000`에만 열려 있습니다 (`compose.yaml`).
+앱에는 서버 주소 입력 화면이 없습니다. 주소는 빌드 종류별로 `app/build.gradle.kts`의 `DEFAULT_BASE_URL`에 고정됩니다.
 
-| 기기 | 주소 | 준비 |
-|---|---|---|
-| 에뮬레이터 | `http://10.0.2.2:8000` (기본값) | 없음 |
-| USB로 연결한 폰 | `http://127.0.0.1:8000` | PC에서 `adb reverse tcp:8000 tcp:8000` (연결할 때마다) |
-| 같은 Wi‑Fi의 폰 | `http://<PC IP>:8000` | `compose.yaml`의 포트를 `0.0.0.0`으로 열어야 함. 개발용으로만 |
+| 빌드 | 주소 |
+|---|---|
+| debug | `http://10.0.2.2:8000` — 에뮬레이터에서 이 PC의 `127.0.0.1:8000`(백엔드)을 가리킴 |
+| release | `https://api.example.com` — 실제 배포 주소로 바꿔서 빌드 |
 
-HTTP(비암호화) 연결은 **debug 빌드에서만** 허용됩니다 (`app/src/debug/res/xml/network_security_config.xml`). release 빌드는 HTTPS만 쓰며 기본 주소는 `app/build.gradle.kts`의 `DEFAULT_BASE_URL`에서 바꿉니다.
+USB로 연결한 실제 폰에서 debug 빌드를 쓰려면 `DEFAULT_BASE_URL`을 `http://127.0.0.1:8000`으로 바꿔 빌드하고 PC에서 `adb reverse tcp:8000 tcp:8000`을 실행합니다.
+
+HTTP(비암호화) 연결은 **debug 빌드에서만** 허용됩니다 (`app/src/debug/res/xml/network_security_config.xml`). release 빌드는 HTTPS만 씁니다.
+
+### 언어
+
+화면 문구는 `res/values/strings.xml`(한국어, 기본)과 `res/values-en/strings.xml`(영어)에 있고, 기기 언어(또는 Android 13+의 앱별 언어 설정)에 따라 바뀝니다. 코드에서는 `tr(R.string.키, 값…)`으로 씁니다 (`NabiApp.kt`). 새 문구를 추가할 때는 두 파일에 같은 키로 넣으세요.
+- 앱은 모든 요청에 `Accept-Language`(앱 언어)를 보내고, 서버는 중재 추천·미션 문구, 대체 응답, LLM 대화를 그 언어(ko/en)로 돌려줍니다.
 
 ## 나비가 하는 일
 
@@ -108,7 +111,7 @@ android/
     ├── data/
     │   ├── ApiClient.kt            /api/v1 호출 (HttpURLConnection + org.json, 외부 라이브러리 없음)
     │   ├── Models.kt               응답 모델, CatAction enum, 한글 라벨
-    │   └── Prefs.kt                서버 주소, JWT, conversation_id, 친밀도
+    │   └── Prefs.kt                JWT, conversation_id, 친밀도 (서버 주소는 빌드 설정값)
     ├── alarm/
     │   ├── NabiAlarms.kt           알림·기상 알람 예약/취소 (AlarmManager), 알림 채널
     │   ├── AlarmReceiver.kt        알림 표시 + 다음 날 재예약
@@ -127,7 +130,6 @@ android/
 
 | 화면/기능 | API |
 |---|---|
-| 연결 확인 | `GET /health` |
 | 회원가입·로그인 | `POST /auth/register`, `POST /auth/login` |
 | 홈 상태 | `GET /users/me/state` |
 | 미션 | `GET /missions/active`, `POST /missions/{id}/complete` |

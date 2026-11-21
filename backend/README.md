@@ -191,3 +191,7 @@ docker compose run --rm --no-deps backend ruff check --no-cache app tests
 | 미션 완료 규칙 | 24시간 안에 작성된 기록으로 검증 | `mission_service.py` |
 | LLM 모델·방식 | Qwen2.5-7B-Instruct(vLLM) 또는 외부 OpenAI 호환 API, 기본은 mock | `llm-server` |
 | 대화 보존 기간·개인정보·위기 대응 절차 | 미확정. 대화는 삭제 정책 없이 저장되고, 위기 시 109·1577-0199·119를 안내 | 결정 후 별도 migration/API |
+
+## 응답 언어
+
+`Accept-Language`가 `en`으로 시작하면 사용자에게 보이는 문장(중재 추천 제목·메시지, 미션 제목·설명, 미션 완료·채팅 대체 응답, 위기 안내)을 영어로 돌려주고, LLM 서버에도 `language: "en"`을 넘깁니다. 그 외는 한국어입니다. 카탈로그는 한국어로 시드되고 영어는 `app/core/i18n.py`에 코드/미션 제목 기준으로 있습니다 — 카탈로그에 항목을 추가하면 여기에도 추가하세요 (`tests/test_i18n.py`가 누락을 잡습니다).

@@ -16,6 +16,7 @@ from app.schemas import (
     HistoryTurn,
     Intent,
     InterventionRequest,
+    Language,
     MissionRequest,
     PersonalContext,
 )
@@ -36,9 +37,18 @@ SAFETY_RULES = """[의료 안전 규칙 — 반드시 지킬 것]
 - 사용자가 자해·자살을 언급하면 공감하고 전문 상담(109)을 안내한다."""
 
 
-def _json_schema_hint(include_category: bool) -> str:
+LANGUAGE_RULE: dict[Language, str] = {
+    Language.KO: "[언어] response는 자연스러운 한국어 반말로 쓴다.",
+    Language.EN: (
+        "[언어] 사용자는 영어로 앱을 쓴다. response는 반드시 자연스러운 영어(친근한 구어체, 1~2문장, 최대 200자)로 쓴다. "
+        "한국어를 섞지 않는다. 위기 상황 안내 번호(109, 1577-0199, 119)는 그대로 쓴다."
+    ),
+}
+
+
+def _json_schema_hint(include_category: bool, lang: Language = Language.KO) -> str:
     fields = {
-        "response": "사용자에게 보낼 한국어 1~2문장 (최대 200자)",
+        "response": "사용자에게 보낼 영어 1~2문장 (최대 200자)" if lang == Language.EN else "사용자에게 보낼 한국어 1~2문장 (최대 200자)",
         "intent": "|".join(i.value for i in Intent),
         "emotion": "|".join(e.value for e in Emotion),
         "cat_action": "|".join(c.value for c in CatAction),
@@ -48,13 +58,13 @@ def _json_schema_hint(include_category: bool) -> str:
     return json.dumps(fields, ensure_ascii=False)
 
 
-def system_prompt(persona: CatPersona, include_category: bool = True) -> str:
+def system_prompt(persona: CatPersona, include_category: bool = True, lang: Language = Language.KO) -> str:
     return (
         "너는 수면 개선 앱 NABI의 2D 고양이 캐릭터다. CBT-I 원칙에 따라 서버가 이미 선택한 중재를 "
         "사용자에게 친근하게 설명하고 대화한다. 판단과 중재 선택은 서버가 하며 너는 설명과 표현만 맡는다.\n"
-        f"[페르소나] {PERSONA_TEXT[persona]}\n\n{SAFETY_RULES}\n\n"
+        f"[페르소나] {PERSONA_TEXT[persona]}\n{LANGUAGE_RULE[lang]}\n\n{SAFETY_RULES}\n\n"
         "[출력 형식] 아래 키만 가진 JSON 객체 하나만 출력한다. 마크다운이나 설명을 붙이지 않는다. "
-        f"enum 값은 제시된 값 중 하나만 사용한다.\n{_json_schema_hint(include_category)}"
+        f"enum 값은 제시된 값 중 하나만 사용한다.\n{_json_schema_hint(include_category, lang)}"
     )
 
 
@@ -101,7 +111,7 @@ def _trim_history(history: list[HistoryTurn], turns: int) -> list[dict]:
 def build_generate_messages(req: GenerateRequest, history_turns: int) -> list[dict]:
     context = f"{personal_context_block(req.context)}\n\n{intervention_block(req.intervention)}"
     return [
-        {"role": "system", "content": f"{system_prompt(req.cat_persona)}\n\n{context}"},
+        {"role": "system", "content": f"{system_prompt(req.cat_persona, lang=req.language)}\n\n{context}"},
         *_trim_history(req.recent_history, history_turns),
         {"role": "user", "content": req.user_message},
     ]
@@ -114,7 +124,7 @@ def build_intervention_messages(req: InterventionRequest) -> list[dict]:
         "intent는 OTHER로 둔다."
     )
     return [
-        {"role": "system", "content": f"{system_prompt(req.cat_persona)}\n\n{context}"},
+        {"role": "system", "content": f"{system_prompt(req.cat_persona, lang=req.language)}\n\n{context}"},
         {"role": "user", "content": task},
     ]
 
@@ -131,7 +141,7 @@ def build_mission_messages(req: MissionRequest) -> list[dict]:
         f"[과제] {phase_text} 1~2문장을 작성한다.{reward} intent는 MISSION_QUERY로 둔다."
     )
     return [
-        {"role": "system", "content": system_prompt(req.cat_persona, include_category=False)},
+        {"role": "system", "content": system_prompt(req.cat_persona, include_category=False, lang=req.language)},
         {"role": "user", "content": task},
     ]
 

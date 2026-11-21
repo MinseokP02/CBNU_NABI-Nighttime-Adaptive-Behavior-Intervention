@@ -1,5 +1,8 @@
 package com.cbnu.nabi.data
 
+
+import com.cbnu.nabi.R
+import com.cbnu.nabi.tr
 import org.json.JSONArray
 import org.json.JSONObject
 import java.time.LocalDate
@@ -35,7 +38,7 @@ data class CatState(
     companion object {
         fun from(j: JSONObject) = CatState(
             catId = j.optInt("cat_id"),
-            name = j.optString("name", "나비"),
+            name = j.optString("name", tr(R.string.nabi)),
             level = j.optInt("level", 1),
             exp = j.optInt("exp"),
             expToNextLevel = j.optInt("exp_to_next_level"),
@@ -69,7 +72,7 @@ data class UserState(
                 behaviorState = j.optString("behavior_state"),
                 riskLevel = j.optString("risk_level"),
                 riskFactors = (0 until factors.length()).map { factors.getString(it) },
-                catName = cat.optString("name", "나비"),
+                catName = cat.optString("name", tr(R.string.nabi)),
                 catLevel = cat.optInt("level", 1),
                 catExp = cat.optInt("exp"),
                 catAction = CatAction.parse(cat.str("cat_action")),
@@ -334,30 +337,30 @@ data class Health(val status: String, val database: String, val llm: String) {
 /** Friendly Korean labels for state enums shown on the home screen. */
 object Labels {
     fun risk(s: String) = when (s) {
-        "HIGH" -> "높음"; "MODERATE" -> "보통"; "LOW" -> "낮음"; else -> "판단 전"
+        "HIGH" -> tr(R.string.high); "MODERATE" -> tr(R.string.moderate); "LOW" -> tr(R.string.low); else -> tr(R.string.not_assessed)
     }
 
     fun sleep(s: String) = when (s) {
-        "DETERIORATING" -> "나빠지는 중"; "IMPROVING" -> "좋아지는 중"; "STABLE" -> "안정"; else -> "기록 수집 중"
+        "DETERIORATING" -> tr(R.string.getting_worse); "IMPROVING" -> tr(R.string.improving); "STABLE" -> tr(R.string.stable); else -> tr(R.string.collecting_records)
     }
 
     fun behavior(s: String) = when (s) {
-        "AT_RISK" -> "주의 필요"; "CAUTION" -> "조금 주의"; "HEALTHY" -> "좋음"; else -> "기록 수집 중"
+        "AT_RISK" -> tr(R.string.needs_attention); "CAUTION" -> tr(R.string.some_caution); "HEALTHY" -> tr(R.string.good); else -> tr(R.string.collecting_records)
     }
 
     fun factor(s: String) = when (s) {
-        "PROLONGED_SLEEP_ONSET" -> "잠들기까지 오래 걸림"
-        "FREQUENT_NIGHT_AWAKENING" -> "밤중에 자주 깸"
-        "LOW_SLEEP_EFFICIENCY" -> "수면 효율 낮음"
-        "SHORT_SLEEP_DURATION" -> "수면 시간 짧음"
-        "IRREGULAR_BEDTIME" -> "취침 시각 불규칙"
-        "IRREGULAR_WAKE_TIME" -> "기상 시각 불규칙"
-        "POOR_SLEEP_QUALITY" -> "수면의 질 낮음"
-        "LATE_CAFFEINE" -> "늦은 카페인"
-        "EXCESSIVE_PRE_BED_SCREEN" -> "자기 전 화면 사용 많음"
-        "LONG_DAYTIME_NAP" -> "긴 낮잠"
-        "HIGH_STRESS" -> "스트레스 높음"
-        "LOW_PHYSICAL_ACTIVITY" -> "활동량 적음"
+        "PROLONGED_SLEEP_ONSET" -> tr(R.string.long_time_to_fall_asleep)
+        "FREQUENT_NIGHT_AWAKENING" -> tr(R.string.frequent_night_waking)
+        "LOW_SLEEP_EFFICIENCY" -> tr(R.string.low_sleep_efficiency)
+        "SHORT_SLEEP_DURATION" -> tr(R.string.short_sleep)
+        "IRREGULAR_BEDTIME" -> tr(R.string.irregular_bedtime)
+        "IRREGULAR_WAKE_TIME" -> tr(R.string.irregular_wake_time)
+        "POOR_SLEEP_QUALITY" -> tr(R.string.poor_sleep_quality)
+        "LATE_CAFFEINE" -> tr(R.string.late_caffeine)
+        "EXCESSIVE_PRE_BED_SCREEN" -> tr(R.string.lots_of_screen_time_before_bed)
+        "LONG_DAYTIME_NAP" -> tr(R.string.long_naps)
+        "HIGH_STRESS" -> tr(R.string.high_stress)
+        "LOW_PHYSICAL_ACTIVITY" -> tr(R.string.low_activity)
         else -> s
     }
 }

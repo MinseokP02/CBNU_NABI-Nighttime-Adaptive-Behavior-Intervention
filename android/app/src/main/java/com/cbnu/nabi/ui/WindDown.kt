@@ -1,5 +1,7 @@
 package com.cbnu.nabi.ui
 
+
+import com.cbnu.nabi.tr
 import android.animation.ValueAnimator
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -68,21 +70,21 @@ object WindDown {
     private fun notify(context: Context) {
         val nm = context.getSystemService(NotificationManager::class.java) ?: return
         if (Build.VERSION.SDK_INT >= 26 && nm.getNotificationChannel(CHANNEL) == null) {
-            nm.createNotificationChannel(NotificationChannel(CHANNEL, "잘 준비 알림", NotificationManager.IMPORTANCE_HIGH).apply {
-                description = "잘 시간이 되면 화면을 서서히 어둡게 해요."
+            nm.createNotificationChannel(NotificationChannel(CHANNEL, tr(R.string.bedtime_wind_down), NotificationManager.IMPORTANCE_HIGH).apply {
+                description = tr(R.string.slowly_dims_screen_when_it_s)
             })
         }
         val open = PendingIntent.getActivity(context, 0,
             Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         val title = ProposalKind.BRIGHTNESS_NOTICE.defaultTitle
-        val text = "곧 잠들 시간이에요. 화면이 조금씩 어두워질 거예요."
+        val text = tr(R.string.it_s_almost_bedtime_your_screen_2)
         @Suppress("DEPRECATION")
         val builder = if (Build.VERSION.SDK_INT >= 26) android.app.Notification.Builder(context, CHANNEL)
         else android.app.Notification.Builder(context).setPriority(android.app.Notification.PRIORITY_HIGH)
         val n = builder
             .setSmallIcon(R.drawable.ic_cat)
-            .setContentTitle("나비 · $title")
+            .setContentTitle(tr(R.string.nabi_2, title))
             .setContentText(text)
             .setCategory(android.app.Notification.CATEGORY_REMINDER)
             .setContentIntent(open)

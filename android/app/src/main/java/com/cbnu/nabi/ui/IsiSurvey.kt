@@ -1,5 +1,7 @@
 package com.cbnu.nabi.ui
 
+
+import com.cbnu.nabi.tr
 import android.app.Dialog
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
@@ -37,7 +39,7 @@ class IsiSurvey(
     private val backButton = FrameLayout(activity).apply {
         addView(activity.icon(R.drawable.ic_chevron_right, Palette.ink, 22).apply { rotation = 180f },
             FrameLayout.LayoutParams(activity.dp(22), activity.dp(22), Gravity.CENTER))
-        contentDescription = "이전 문항"
+        contentDescription = tr(R.string.previous_question)
         setOnClickListener { back() }
     }
     private val body = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
@@ -50,7 +52,7 @@ class IsiSurvey(
         }
         val head = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         head.addView(backButton, LinearLayout.LayoutParams(activity.dp(36), activity.dp(36)))
-        head.addView(activity.label("불면증 심각도 검사 (ISI)", 20f, title = true),
+        head.addView(activity.label(tr(R.string.insomnia_severity_index_isi), 20f, title = true),
             LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { leftMargin = activity.dp(4) })
         head.addView(progressText)
         root.addView(head)
@@ -79,7 +81,7 @@ class IsiSurvey(
     }
 
     private fun setProgress(done: Int) {
-        progressText.text = if (done >= ITEMS.size) "완료" else "${done + 1} / ${ITEMS.size}"
+        progressText.text = if (done >= ITEMS.size) tr(R.string.done) else "${done + 1} / ${ITEMS.size}"
         progressTrack.post {
             val w = progressTrack.width * (minOf(done + 1, ITEMS.size)) / ITEMS.size
             progressFill.layoutParams = progressFill.layoutParams.apply { width = w }
@@ -91,7 +93,7 @@ class IsiSurvey(
         setProgress(index)
         body.removeAllViews()
         val item = ITEMS[index]
-        body.addView(activity.label(if (index < 3) "최근 2주 동안, 다음 문제는 얼마나 심했나요?" else "최근 2주 동안을 떠올려 주세요.",
+        body.addView(activity.label(if (index < 3) tr(R.string.over_last_2_weeks_how_severe) else tr(R.string.think_about_last_2_weeks),
             12.5f, Palette.muted, bold = true))
         body.addView(activity.label(item.question, 21f, title = true).apply {
             setLineSpacing(activity.dp(3).toFloat(), 1f)
@@ -106,8 +108,8 @@ class IsiSurvey(
                 background = activity.cardBg(if (selected) Palette.lavenderSoft else Palette.card, 16,
                     if (selected) Palette.lavender else Palette.line)
                 addView(activity.label(text, 15f, Palette.ink, bold = true), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-                addView(activity.label("${score}점", 11f, Palette.muted))
-                contentDescription = "$text (${score}점)"
+                addView(activity.label(tr(R.string.pts_2, score), 11f, Palette.muted))
+                contentDescription = tr(R.string.pts, text, score)
                 setOnClickListener { choose(score, this) }
             }
             body.addView(option, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, activity.dp(56))
@@ -137,14 +139,14 @@ class IsiSurvey(
             setPadding(activity.dp(20), activity.dp(24), activity.dp(20), activity.dp(22))
             background = activity.cardBg(Palette.card, 22, Color.parseColor("#E6D4C8"))
         }
-        card.addView(activity.label("나의 ISI 점수", 13f, Palette.muted, bold = true).apply { gravity = Gravity.CENTER })
+        card.addView(activity.label(tr(R.string.my_isi_score), 13f, Palette.muted, bold = true).apply { gravity = Gravity.CENTER })
         val row = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.BOTTOM }
         row.addView(activity.label(total.toString(), 44f, Palette.lavenderDeep, title = true))
-        row.addView(activity.label(" / 28점", 14f, Palette.muted).apply { setPadding(0, 0, 0, activity.dp(6)) })
+        row.addView(activity.label(tr(R.string.n_28), 14f, Palette.muted).apply { setPadding(0, 0, 0, activity.dp(6)) })
         card.addView(row, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
             .apply { topMargin = activity.dp(8) })
         card.addView(activity.label(band(total), 16f, title = true).apply { gravity = Gravity.CENTER; setPadding(0, activity.dp(8), 0, 0) })
-        card.addView(activity.label("ISI는 불면 증상의 심각도를 파악하기 위한 설문이며,\n의학적 진단을 대신하지 않습니다.", 11.5f, Palette.muted).apply {
+        card.addView(activity.label(tr(R.string.isi_measures_how_severe_insomnia_symptoms), 11.5f, Palette.muted).apply {
             gravity = Gravity.CENTER
             setLineSpacing(activity.dp(2).toFloat(), 1f)
             setPadding(0, activity.dp(14), 0, 0)
@@ -153,30 +155,30 @@ class IsiSurvey(
             .apply { topMargin = activity.dp(12) })
         body.addView(Modals.button(activity, confirmLabel, true) { dialog.dismiss(); onDone(total) },
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, activity.dp(52)).apply { topMargin = activity.dp(22) })
-        body.addView(Modals.button(activity, "다시 검사하기", false) { answers.fill(-1); index = 0; renderQuestion() },
+        body.addView(Modals.button(activity, tr(R.string.take_it_again), false) { answers.fill(-1); index = 0; renderQuestion() },
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, activity.dp(46)).apply { topMargin = activity.dp(10) })
     }
 
     companion object {
-        private val SEVERITY = listOf("없음", "약간", "중간", "심함", "매우 심함")
-        private val AMOUNT = listOf("전혀 아니다", "약간", "어느 정도", "많이", "매우 많이")
+        private val SEVERITY get() = listOf(tr(R.string.none), tr(R.string.mild), tr(R.string.moderate_2), tr(R.string.severe), tr(R.string.very_severe))
+        private val AMOUNT get() = listOf(tr(R.string.not_at_all), tr(R.string.mild), tr(R.string.somewhat), tr(R.string.much), tr(R.string.very_much))
 
-        private val ITEMS = listOf(
-            Item("잠들기 어려움", SEVERITY),
-            Item("잠을 유지하기 어려움\n(자다가 자주 깸)", SEVERITY),
-            Item("너무 일찍 깨는 문제", SEVERITY),
-            Item("현재 수면 상태에\n얼마나 만족하나요?", listOf("매우 만족", "만족", "보통", "불만족", "매우 불만족")),
-            Item("수면 문제가 다른 사람에게\n얼마나 눈에 띈다고 생각하나요?", AMOUNT),
-            Item("현재 수면 문제 때문에\n얼마나 걱정되거나 괴로운가요?", AMOUNT),
-            Item("수면 문제가 낮 동안의 생활\n(피로, 집중력, 기분 등)을 얼마나 방해하나요?", AMOUNT),
+        private val ITEMS get() = listOf(
+            Item(tr(R.string.difficulty_falling_asleep), SEVERITY),
+            Item(tr(R.string.difficulty_staying_asleep_waking_up_often), SEVERITY),
+            Item(tr(R.string.waking_up_too_early), SEVERITY),
+            Item(tr(R.string.how_satisfied_are_you_with_your), listOf(tr(R.string.very_satisfied), tr(R.string.satisfied), tr(R.string.moderate), tr(R.string.dissatisfied), tr(R.string.very_dissatisfied))),
+            Item(tr(R.string.how_noticeable_do_you_think_your), AMOUNT),
+            Item(tr(R.string.how_worried_or_distressed_are_you), AMOUNT),
+            Item(tr(R.string.how_much_does_your_sleep_problem), AMOUNT),
         )
 
         /** Standard ISI bands (same as 마이페이지). */
         fun band(score: Int) = when {
-            score <= 7 -> "임상적으로 유의한 불면 증상 없음"
-            score <= 14 -> "역치하 불면"
-            score <= 21 -> "중등도 임상적 불면"
-            else -> "심한 임상적 불면"
+            score <= 7 -> tr(R.string.no_clinically_significant_insomnia)
+            score <= 14 -> tr(R.string.subthreshold_insomnia)
+            score <= 21 -> tr(R.string.moderate_clinical_insomnia)
+            else -> tr(R.string.severe_clinical_insomnia)
         }
     }
 }

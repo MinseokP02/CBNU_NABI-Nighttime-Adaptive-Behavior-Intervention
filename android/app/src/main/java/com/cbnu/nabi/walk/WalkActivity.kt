@@ -1,5 +1,7 @@
 package com.cbnu.nabi.walk
 
+
+import com.cbnu.nabi.tr
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
@@ -152,12 +154,12 @@ class WalkActivity : Activity() {
         header.addView(FrameLayout(this).apply {
             background = cardBg(Palette.card, 12, Color.parseColor("#E6D4C8"))
             addView(icon(R.drawable.ic_chevron_left, Palette.ink, 22), FrameLayout.LayoutParams(dp(22), dp(22), Gravity.CENTER))
-            contentDescription = "돌아가기"
+            contentDescription = tr(R.string.back_2)
             setOnClickListener { finish() }
         }, LinearLayout.LayoutParams(dp(36), dp(36)))
         val titles = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        titles.addView(label("나비와 산책", 22f, title = true))
-        titles.addView(label("가볍게 걸으면 밤에 더 잘 잘 수 있어요", 11f, Palette.muted).apply { setPadding(0, dp(3), 0, 0) })
+        titles.addView(label(tr(R.string.walk_with_nabi), 22f, title = true))
+        titles.addView(label(tr(R.string.light_walk_helps_you_sleep_better), 11f, Palette.muted).apply { setPadding(0, dp(3), 0, 0) })
         header.addView(titles, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { leftMargin = dp(10) })
         root.addView(header)
 
@@ -186,16 +188,16 @@ class WalkActivity : Activity() {
         root.addView(mapFrame, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, mapH))
 
         val panel = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(16), dp(12), dp(16), dp(24)) }
-        routeInfo = label("현재 위치를 찾고 있어요…", 15f, title = true)
+        routeInfo = label(tr(R.string.finding_your_location), 15f, title = true)
         panel.addView(routeInfo)
         hint = label("", 11f, Palette.muted).apply { setPadding(0, dp(4), 0, 0); setLineSpacing(dp(2).toFloat(), 1f) }
         panel.addView(hint)
 
         planControls = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        planControls.addView(label("산책 시간", 12.5f, bold = true).apply { setPadding(0, dp(12), 0, dp(6)) })
+        planControls.addView(label(tr(R.string.walk_length), 12.5f, bold = true).apply { setPadding(0, dp(12), 0, dp(6)) })
         val chipRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         for (m in listOf(15, 30, 45, 60)) {
-            val c = label("${m}분", 12f, bold = true).apply {
+            val c = label(tr(R.string.min_2, m), 12f, bold = true).apply {
                 gravity = Gravity.CENTER
                 setOnClickListener { if (targetMinutes != m) { targetMinutes = m; styleChips(); replan() } }
             }
@@ -204,9 +206,9 @@ class WalkActivity : Activity() {
         }
         planControls.addView(chipRow)
         val btnRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(10), 0, 0) }
-        btnRow.addView(Modals.button(this, "다른 경로", false) { via.clear(); heading = (heading + 72 + Random.nextDouble(-15.0, 15.0)) % 360; replan() },
+        btnRow.addView(Modals.button(this, tr(R.string.another_route), false) { via.clear(); heading = (heading + 72 + Random.nextDouble(-15.0, 15.0)) % 360; replan() },
             LinearLayout.LayoutParams(0, dp(42), 1f))
-        btnRow.addView(Modals.button(this, "초기화", false) { via.clear(); replan() },
+        btnRow.addView(Modals.button(this, tr(R.string.reset), false) { via.clear(); replan() },
             LinearLayout.LayoutParams(0, dp(42), 1f).apply { leftMargin = dp(8) })
         planControls.addView(btnRow)
         panel.addView(planControls)
@@ -214,10 +216,10 @@ class WalkActivity : Activity() {
 
         statsText = label("", 13f, bold = true).apply { gravity = Gravity.CENTER; setPadding(0, dp(12), 0, 0); visibility = View.GONE }
         panel.addView(statsText)
-        actionBtn = Modals.button(this, "산책 시작", true) { onAction() }
+        actionBtn = Modals.button(this, tr(R.string.start_walk), true) { onAction() }
         panel.addView(actionBtn, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(50)).apply { topMargin = dp(14) })
 
-        panel.addView(label("산책 내역", 17f, title = true).apply { setPadding(0, dp(22), 0, dp(4)) })
+        panel.addView(label(tr(R.string.walk_history), 17f, title = true).apply { setPadding(0, dp(22), 0, dp(4)) })
         historyBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         panel.addView(historyBox)
         root.addView(ScrollView(this).apply { addView(panel) }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
@@ -234,17 +236,17 @@ class WalkActivity : Activity() {
         val walking = WalkSession.active
         planControls.visibility = if (walking) View.GONE else View.VISIBLE
         statsText.visibility = if (walking) View.VISIBLE else View.GONE
-        actionBtn.text = if (walking) "산책 끝내기" else "산책 시작"
+        actionBtn.text = if (walking) tr(R.string.end_walk) else tr(R.string.start_walk)
         actionBtn.background = rounded(if (walking) Color.parseColor("#E99680") else Color.parseColor("#9D7BC4"), 14)
         if (walking) renderStats() else renderHint()
     }
 
     private fun renderHint() {
         hint.text = buildString {
-            append("지도를 누르면 지나갈 곳을 추가할 수 있어요 (최대 ${MAX_VIA}곳).")
-            if (via.isNotEmpty()) append(" 지금 ${via.size}곳을 지나요.")
-            if (route?.snapped == false) append("\n길 안내 서버에 연결하지 못해 직선 경로로 보여줘요.")
-            if (usingFallbackStart) append("\n현재 위치를 몰라 기본 위치(충북대) 기준으로 보여줘요.")
+            append(tr(R.string.tap_map_to_add_places_to, MAX_VIA))
+            if (via.isNotEmpty()) append(tr(R.string.passing_place_s_now, via.size))
+            if (route?.snapped == false) append(tr(R.string.couldn_t_reach_routing_server_so))
+            if (usingFallbackStart) append(tr(R.string.your_location_is_unknown_so_default))
         }
     }
 
@@ -252,9 +254,9 @@ class WalkActivity : Activity() {
     private fun renderStats() {
         if (!WalkSession.active) return
         val sec = WalkSession.elapsedSec
-        statsText.text = "%d:%02d 경과 · %.2fkm 걸었어요".format(sec / 60, sec % 60, WalkSession.distanceM / 1000) +
-            (WalkSession.targetMinutes?.let { " · 목표 ${it}분" } ?: "")
-        hint.text = "화면을 꺼도 기록돼요. 알림에서 다시 이 화면으로 올 수 있어요."
+        statsText.text = tr(R.string.elapsed_km_walked).format(sec / 60, sec % 60, WalkSession.distanceM / 1000) +
+            (WalkSession.targetMinutes?.let { tr(R.string.goal_min, it) } ?: "")
+        hint.text = tr(R.string.keeps_recording_with_screen_off_tap)
     }
 
     // ---------------- location ----------------
@@ -319,7 +321,7 @@ class WalkActivity : Activity() {
     private fun addVia(p: GeoPoint) {
         if (WalkSession.active || start == null) return
         if (via.size >= MAX_VIA) {
-            Toast.makeText(this, "지나갈 곳은 ${MAX_VIA}곳까지 추가할 수 있어요", Toast.LENGTH_SHORT).show(); return
+            Toast.makeText(this, tr(R.string.you_can_add_up_to_places, MAX_VIA), Toast.LENGTH_SHORT).show(); return
         }
         via.add(doubleArrayOf(p.latitude, p.longitude))
         replan()
@@ -329,13 +331,13 @@ class WalkActivity : Activity() {
         val s = start ?: return
         if (WalkSession.active) return
         val seq = ++planSeq
-        routeInfo.text = "경로를 찾고 있어요…"
+        routeInfo.text = tr(R.string.finding_route)
         val viaCopy = via.toList()
         bg({ WalkRoutePlanner.plan(s, targetMinutes, heading, viaCopy) }) { r ->
             if (seq != planSeq) return@bg // a newer request is on its way
             val planned = r.getOrNull() ?: return@bg
             route = planned
-            routeInfo.text = "추천 경로 · %.1fkm · 약 %d분".format(planned.distanceM / 1000, planned.minutes)
+            routeInfo.text = tr(R.string.suggested_route_km_about_min).format(planned.distanceM / 1000, planned.minutes)
             drawRoute(planned, s, fit = true)
             renderHint()
         }
@@ -345,9 +347,9 @@ class WalkActivity : Activity() {
         routeLine.setPoints(r.points.map { GeoPoint(it[0], it[1]) })
         markers.forEach { map.overlays.remove(it) }
         markers.clear()
-        markers += marker(s, R.drawable.ic_home, "출발·도착")
+        markers += marker(s, R.drawable.ic_home, tr(R.string.start_finish))
         via.forEachIndexed { i, p ->
-            markers += marker(p, R.drawable.ic_paw, "지나갈 곳 ${i + 1} (눌러서 삭제)").apply {
+            markers += marker(p, R.drawable.ic_paw, tr(R.string.place_tap_to_remove, i + 1)).apply {
                 setOnMarkerClickListener { _, _ -> if (!WalkSession.active) { via.removeAt(i); replan() }; true }
             }
         }
@@ -376,8 +378,8 @@ class WalkActivity : Activity() {
 
     private fun startWalk() {
         if (!hasLocationPermission()) {
-            Modals.info(this, R.drawable.ic_paw, "위치 권한이 필요해요",
-                "산책 경로를 기록하려면 위치 권한을 허용해 주세요.", "허용하기" to {
+            Modals.info(this, R.drawable.ic_paw, tr(R.string.location_permission_needed),
+                tr(R.string.allow_location_access_to_record_your), tr(R.string.allow_2) to {
                     requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION), REQ_LOCATION)
                 })
             return
@@ -392,7 +394,7 @@ class WalkActivity : Activity() {
         WalkSession.proposalId = proposalId
         start?.let { WalkSession.add(Location("start").apply { latitude = it[0]; longitude = it[1]; time = System.currentTimeMillis(); accuracy = 10f }) }
         WalkTrackingService.start(this)
-        PetService.show(this, CatAction.WALK, "같이 걷자냥!")
+        PetService.show(this, CatAction.WALK, tr(R.string.let_s_walk_together_meow))
         main.post(ticker)
         renderMode()
     }
@@ -400,8 +402,8 @@ class WalkActivity : Activity() {
     private fun finishWalk() {
         val elapsed = WalkSession.elapsedSec
         if (elapsed < MIN_WALK_SEC) {
-            Modals.info(this, R.drawable.ic_paw, "아직 1분도 안 걸었어요",
-                "지금 끝내면 산책 내역에 저장하지 않아요. 끝낼까요?", "끝내기" to { endSession(); renderMode() })
+            Modals.info(this, R.drawable.ic_paw, tr(R.string.you_haven_t_walked_minute_yet),
+                tr(R.string.if_you_end_now_this_walk), tr(R.string.end) to { endSession(); renderMode() })
             return
         }
         val startedAt = ZonedDateTime.ofInstant(Instant.ofEpochMilli(WalkSession.startedAtMs), ZoneId.systemDefault())
@@ -432,20 +434,20 @@ class WalkActivity : Activity() {
         // until the server has it, so a failed upload is never lost ([loadHistory] sends it again).
         pid?.let { MissionProposalStore(this, prefs.email).completeById(it) }
         pending.add(api.walkBody(startedAt, endedAt, distance, target, plannedDist, planned, path, pid))
-        PetService.show(this, CatAction.HAPPY, "산책 최고였다냥!")
+        PetService.show(this, CatAction.HAPPY, tr(R.string.that_walk_was_best_meow))
         actionBtn.isEnabled = false
-        actionBtn.text = "산책 내역 저장 중…"
+        actionBtn.text = tr(R.string.saving_walk)
         bg({ pending.flush(api) }) { r ->
             actionBtn.isEnabled = true
             renderMode()
             val min = java.time.Duration.between(startedAt, endedAt).toMinutes()
             if ((r.getOrNull() ?: 0) > 0) {
-                Toast.makeText(this, "산책을 기록했어요 · ${min}분 · %.2fkm".format(distance / 1000), Toast.LENGTH_LONG).show()
+                Toast.makeText(this, tr(R.string.walk_saved_min_km, min).format(distance / 1000), Toast.LENGTH_LONG).show()
                 loadHistory()
             } else {
-                Modals.info(this, R.drawable.ic_paw, "산책 내역을 아직 저장하지 못했어요",
-                    "이 기기에 보관해 두었다가 서버에 연결되면 자동으로 올릴게요.\n(${r.exceptionOrNull()?.friendly() ?: "연결 실패"})",
-                    "지금 다시 시도" to { loadHistory() })
+                Modals.info(this, R.drawable.ic_paw, tr(R.string.couldn_t_save_your_walk_yet),
+                    tr(R.string.it_s_kept_on_this_device, r.exceptionOrNull()?.friendly() ?: tr(R.string.connection_failed)),
+                    tr(R.string.try_again_now) to { loadHistory() })
                 loadHistory()
             }
         }
@@ -459,10 +461,10 @@ class WalkActivity : Activity() {
         bg({ runCatching { pending.flush(api) }; api.walks(20) }) { r ->
             historyBox.removeAllViews()
             r.onSuccess { renderHistory(it) }.onFailure {
-                historyBox.addView(label("산책 내역을 불러오지 못했어요 (${it.friendly()})", 11.5f, Palette.muted))
+                historyBox.addView(label(tr(R.string.couldn_t_load_your_walk_history, it.friendly()), 11.5f, Palette.muted))
             }
             pending.count().takeIf { it > 0 }?.let {
-                historyBox.addView(label("서버에 아직 올리지 못한 산책 ${it}건이 이 기기에 있어요. 연결되면 자동으로 올려요.",
+                historyBox.addView(label(tr(R.string.walk_s_on_this_device_haven, it),
                     11f, Palette.lavenderDeep, bold = true).apply { setPadding(0, dp(8), 0, 0) })
             }
         }
@@ -470,11 +472,11 @@ class WalkActivity : Activity() {
 
     private fun renderHistory(h: WalkHistory) {
         if (h.items.isEmpty()) {
-            historyBox.addView(label("아직 산책 기록이 없어요. 나비와 첫 산책을 해 볼까요?", 11.5f, Palette.muted)); return
+            historyBox.addView(label(tr(R.string.no_walks_yet_how_about_your), 11.5f, Palette.muted)); return
         }
-        historyBox.addView(label("지금까지 ${h.walks}번 · 총 %.1fkm · %d분".format(h.totalDistanceM / 1000, h.totalDurationSec / 60),
+        historyBox.addView(label(tr(R.string.so_far_walks_km_min_in, h.walks).format(h.totalDistanceM / 1000, h.totalDurationSec / 60),
             12f, Palette.lavenderDeep, bold = true).apply { setPadding(0, dp(2), 0, dp(8)) })
-        val fmt = DateTimeFormatter.ofPattern("M월 d일 (E) a h:mm", Locale.KOREAN)
+        val fmt = DateTimeFormatter.ofPattern(tr(R.string.mmm_d_e_h_mm), Locale.getDefault())
         for (w in h.items) {
             val row = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
@@ -485,8 +487,8 @@ class WalkActivity : Activity() {
             row.addView(icon(R.drawable.ic_paw, Palette.lavender, 18))
             val texts = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
             texts.addView(label(w.startedAt.atZoneSameInstant(ZoneId.systemDefault()).format(fmt), 12f, bold = true))
-            texts.addView(label("${w.durationSec / 60}분 · %.2fkm".format(w.distanceM / 1000) +
-                (w.targetMinutes?.let { " · 목표 ${it}분" } ?: ""), 11f, Palette.muted).apply { setPadding(0, dp(3), 0, 0) })
+            texts.addView(label(tr(R.string.min_km, w.durationSec / 60).format(w.distanceM / 1000) +
+                (w.targetMinutes?.let { tr(R.string.goal_min, it) } ?: ""), 11f, Palette.muted).apply { setPadding(0, dp(3), 0, 0) })
             row.addView(texts, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { leftMargin = dp(10) })
             historyBox.addView(row, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
                 .apply { bottomMargin = dp(6) })

@@ -1,5 +1,7 @@
 package com.cbnu.nabi.pet
 
+
+import com.cbnu.nabi.tr
 import android.content.Context
 import android.graphics.Color
 import android.graphics.PixelFormat
@@ -60,7 +62,7 @@ class WalkSuggestionCard(
             setImageResource(R.drawable.ic_paw)
             imageTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#8264A1"))
         }, LinearLayout.LayoutParams(dp(20), dp(20)))
-        head.addView(text("나비의 제안", 12f, Color.parseColor("#71568D"), bold = true),
+        head.addView(text(tr(R.string.nabi_s_suggestion), 12f, Color.parseColor("#71568D"), bold = true),
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { leftMargin = dp(6) })
         box.addView(head)
         box.addView(text(title, 18f, ink, title = true).apply { setPadding(0, dp(10), 0, 0) })
@@ -68,11 +70,11 @@ class WalkSuggestionCard(
             setPadding(0, dp(6), 0, 0); setLineSpacing(dp(3).toFloat(), 1f)
         })
         val row = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(14), 0, 0) }
-        val later = text("나중에", 14f, ink, bold = true).apply {
+        val later = text(tr(R.string.later), 14f, ink, bold = true).apply {
             gravity = Gravity.CENTER; background = round(Color.parseColor("#F0E7E1"), 14)
             setOnClickListener { dismiss(); onLater() }
         }
-        val accept = text("좋아, 같이 걷자", 14f, Color.WHITE, bold = true).apply {
+        val accept = text(tr(R.string.sure_let_s_walk), 14f, Color.WHITE, bold = true).apply {
             gravity = Gravity.CENTER; background = round(Color.parseColor("#9D7BC4"), 14)
             setOnClickListener { dismiss(); onAccept() }
         }

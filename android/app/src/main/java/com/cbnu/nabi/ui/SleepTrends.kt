@@ -1,5 +1,8 @@
 package com.cbnu.nabi.ui
 
+
+import com.cbnu.nabi.R
+import com.cbnu.nabi.tr
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Canvas
@@ -30,14 +33,14 @@ import kotlin.math.roundToInt
 /** Names and value formats for the server's metric ids. */
 object TrendFormat {
     fun name(m: String) = when (m) {
-        "bedtime" -> "취침 시각"
-        "sleep_onset_latency" -> "잠들기까지 걸린 시간"
-        "sleep_duration" -> "총 수면시간"
-        "sleep_efficiency" -> "수면 효율"
-        "wake_after_sleep_onset" -> "밤중 깨어 있던 시간"
-        "screen_before_bed_min" -> "취침 전 스마트폰 사용"
-        "nap_duration_min" -> "낮잠 시간"
-        "exercise_duration_min" -> "운동 시간"
+        "bedtime" -> tr(R.string.bedtime)
+        "sleep_onset_latency" -> tr(R.string.time_to_fall_asleep)
+        "sleep_duration" -> tr(R.string.total_sleep)
+        "sleep_efficiency" -> tr(R.string.sleep_efficiency)
+        "wake_after_sleep_onset" -> tr(R.string.time_awake_at_night)
+        "screen_before_bed_min" -> tr(R.string.phone_use_before_bed)
+        "nap_duration_min" -> tr(R.string.nap_time_2)
+        "exercise_duration_min" -> tr(R.string.exercise_time_2)
         else -> m
     }
 
@@ -53,7 +56,7 @@ object TrendFormat {
         t.unit == "clock" -> Modals.format12(clock(t, v))
         t.unit == "ratio" -> "${(v * 100).roundToInt()}%"
         t.metric == "sleep_duration" -> formatDuration(v.roundToInt())
-        else -> "${v.roundToInt()}분"
+        else -> tr(R.string.min_2, v.roundToInt())
     }
 
     /** Short value for the y axis: "23:03", "18", "7:35", "94%". */
@@ -66,10 +69,10 @@ object TrendFormat {
 
     /** Status chip (text, text color, background) from the server's judgement of the last point. */
     fun status(t: TrendMetric): Triple<String, Int, Int>? = when (t.latestStatus) {
-        "changed" -> Triple(if (t.domain == "sleep") "평소와 달라요" else "주의 필요", Color.parseColor("#B4583C"), Color.parseColor("#FBE3DA"))
-        "improved" -> Triple("좋아졌어요", Color.parseColor("#3E7F5A"), Color.parseColor("#DDF0E4"))
-        "normal" -> Triple(if (t.domain == "sleep") "평소 범위" else "기준 이내", Palette.lavenderDeep, Palette.lavenderSoft)
-        "unknown" -> Triple("기준선 수집 중", Palette.muted, Color.parseColor("#F1E6DD"))
+        "changed" -> Triple(if (t.domain == "sleep") tr(R.string.different_from_usual) else tr(R.string.needs_attention), Color.parseColor("#B4583C"), Color.parseColor("#FBE3DA"))
+        "improved" -> Triple(tr(R.string.improved), Color.parseColor("#3E7F5A"), Color.parseColor("#DDF0E4"))
+        "normal" -> Triple(if (t.domain == "sleep") tr(R.string.usual_range) else tr(R.string.within_range), Palette.lavenderDeep, Palette.lavenderSoft)
+        "unknown" -> Triple(tr(R.string.building_baseline), Palette.muted, Color.parseColor("#F1E6DD"))
         else -> null
     }
 
@@ -77,8 +80,8 @@ object TrendFormat {
     fun referenceNote(t: TrendMetric): String? {
         val r = t.reference?.roundToInt() ?: return null
         return when (t.metric) {
-            "exercise_duration_min" -> "기준선: ${r}분 미만이면 주의"
-            else -> "기준선: ${r}분 이상이면 주의"
+            "exercise_duration_min" -> tr(R.string.baseline_caution_under_min, r)
+            else -> tr(R.string.baseline_caution_at_min_or_more, r)
         }
     }
 
@@ -113,7 +116,7 @@ class TrendChartView(context: Context, private val t: TrendMetric, private val s
     private val ring = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
 
     init {
-        contentDescription = TrendFormat.name(t.metric) + " 추이 그래프"
+        contentDescription = TrendFormat.name(t.metric) + tr(R.string.trend_chart)
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
@@ -148,12 +151,12 @@ class TrendChartView(context: Context, private val t: TrendMetric, private val s
             c.drawRect(left, y(b.high), right, y(b.low), bandPaint)
             dashed.color = Color.parseColor("#8F78BD")
             c.drawLine(left, y(b.median), right, y(b.median), dashed)
-            sideLabel(c, right, y(b.median), "평소", TrendFormat.axis(t, b.median), Color.parseColor("#6E58A0"))
+            sideLabel(c, right, y(b.median), tr(R.string.usual), TrendFormat.axis(t, b.median), Color.parseColor("#6E58A0"))
         }
         t.reference?.let { r ->
             dashed.color = Color.parseColor("#E07A5C")
             c.drawLine(left, y(r), right, y(r), dashed)
-            sideLabel(c, right, y(r), "기준", TrendFormat.axis(t, r) + "분", Color.parseColor("#B4583C"))
+            sideLabel(c, right, y(r), tr(R.string.ref), TrendFormat.axis(t, r) + tr(R.string.min), Color.parseColor("#B4583C"))
         }
 
         // the line, then the points; the last point is larger and colored by the server's status
@@ -168,7 +171,7 @@ class TrendChartView(context: Context, private val t: TrendMetric, private val s
             c.drawCircle(lx, ly, px(6.5f), ring)
             c.drawCircle(lx, ly, px(5f), Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color })
             labelText.color = color
-            val s = TrendFormat.axis(t, t.points.last().value) + if (t.unit == "minutes" && t.metric != "sleep_duration") "분" else ""
+            val s = TrendFormat.axis(t, t.points.last().value) + if (t.unit == "minutes" && t.metric != "sleep_duration") tr(R.string.min) else ""
             // Left of the point, so it never collides with the 평소/기준 labels on the right.
             val tx = max(left, lx - labelText.measureText(s) - px(9f))
             val ty = if (ly - px(8f) < top + px(4f)) ly + px(16f) else ly - px(8f)
@@ -178,7 +181,7 @@ class TrendChartView(context: Context, private val t: TrendMetric, private val s
         // x axis: first day … last day
         val fmt = { day: LocalDate -> "${day.monthValue}/${day.dayOfMonth}" }
         c.drawText(fmt(start), left, height - px(6f), axisText)
-        val endLabel = "${fmt(end)} (최근)"
+        val endLabel = tr(R.string.recent_2, fmt(end))
         c.drawText(endLabel, right - axisText.measureText(endLabel), height - px(6f), axisText)
     }
 
@@ -207,13 +210,13 @@ class SleepTrendSection(private val activity: MainActivity) {
     init {
         val head = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         head.addView(activity.icon(com.cbnu.nabi.R.drawable.ic_chart, Palette.lavender, 20))
-        head.addView(activity.label("전체 수면 분석", 17f, title = true),
+        head.addView(activity.label(tr(R.string.sleep_overview), 17f, title = true),
             LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { leftMargin = activity.dp(7) })
         for (d in listOf(7, 14, 30)) {
-            val chip = activity.label("${d}일", 11f, bold = true).apply {
+            val chip = activity.label(tr(R.string.d, d), 11f, bold = true).apply {
                 gravity = Gravity.CENTER
                 setPadding(activity.dp(9), activity.dp(4), activity.dp(9), activity.dp(4))
-                contentDescription = "최근 ${d}일 보기"
+                contentDescription = tr(R.string.show_last_days, d)
                 setOnClickListener { if (days != d) { days = d; styleChips(); load() } }
             }
             chips[d] = chip
@@ -252,24 +255,24 @@ class SleepTrendSection(private val activity: MainActivity) {
         body.removeAllViews()
         val t = data
         if (t == null) {
-            body.addView(note(error?.let { "분석을 불러오지 못했어요. ($it)" } ?: "분석을 불러오는 중이에요…"))
+            body.addView(note(error?.let { tr(R.string.couldn_t_load_analysis, it) } ?: tr(R.string.loading_analysis_2)))
             return
         }
         val start = t.startDate; val end = t.endDate
         if (start == null || end == null || t.metrics.all { it.points.isEmpty() }) {
-            body.addView(note("아직 분석할 기록이 없어요. 수면 일지를 기록하면 여기에서 변화를 보여드려요."))
+            body.addView(note(tr(R.string.nothing_to_analyze_yet_log_your)))
             return
         }
         body.addView(note(
-            (if (t.baselineReady) "음영은 나의 평소 범위(개인 기준선), 점선은 평소 값이에요."
-            else "개인 기준선을 만드는 중이라 평소 범위는 아직 표시되지 않아요.") +
-                "\n날짜는 잠든 밤 기준 · 마지막 점이 가장 최근 기록이에요."))
+            (if (t.baselineReady) tr(R.string.shaded_band_is_your_usual_range)
+            else tr(R.string.your_personal_baseline_is_still_being)) +
+                tr(R.string.dates_are_night_you_fell_asleep)))
         val missing = mutableListOf<String>()
         for (m in t.metrics) {
             if (m.points.isEmpty()) { missing += TrendFormat.name(m.metric); continue }
             body.addView(metricBlock(m, start, end))
         }
-        if (missing.isNotEmpty()) body.addView(note("이 기간에 기록 없음: ${missing.joinToString(", ")}", 10.5f))
+        if (missing.isNotEmpty()) body.addView(note(tr(R.string.no_records_in_this_period, missing.joinToString(", ")), 10.5f))
     }
 
     private fun metricBlock(m: TrendMetric, start: LocalDate, end: LocalDate): View {
@@ -280,7 +283,7 @@ class SleepTrendSection(private val activity: MainActivity) {
         val names = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
         names.addView(activity.label(TrendFormat.name(m.metric), 13f, bold = true))
         val last = m.points.last()
-        val sub = "최근 ${TrendFormat.value(m, last.value)}" + (m.band?.let { " · 평소 ${TrendFormat.value(m, it.median)}" } ?: "")
+        val sub = tr(R.string.recent, TrendFormat.value(m, last.value)) + (m.band?.let { tr(R.string.usual_2, TrendFormat.value(m, it.median)) } ?: "")
         names.addView(activity.label(sub, 10.5f, Palette.muted))
         row.addView(names, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         TrendFormat.status(m)?.let { (text, fg, bg) ->
@@ -293,7 +296,7 @@ class SleepTrendSection(private val activity: MainActivity) {
         box.addView(TrendChartView(activity, m, start, end), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
             .apply { topMargin = activity.dp(6) })
         TrendFormat.referenceNote(m)?.let { box.addView(note(it, 10f)) }
-        if (abs(ChronoUnit.DAYS.between(last.date, end)) > 0) box.addView(note("마지막 기록: ${last.date.monthValue}/${last.date.dayOfMonth}", 10f))
+        if (abs(ChronoUnit.DAYS.between(last.date, end)) > 0) box.addView(note(tr(R.string.last_record, last.date.monthValue, last.date.dayOfMonth), 10f))
         return box
     }
 }

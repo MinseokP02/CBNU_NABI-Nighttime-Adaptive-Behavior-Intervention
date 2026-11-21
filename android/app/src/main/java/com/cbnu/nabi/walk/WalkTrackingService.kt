@@ -1,5 +1,7 @@
 package com.cbnu.nabi.walk
 
+
+import com.cbnu.nabi.tr
 import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.NotificationChannel
@@ -126,8 +128,8 @@ class WalkTrackingService : Service(), LocationListener {
         val km = WalkSession.distanceM / 1000
         return Notification.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_paw)
-            .setContentTitle("나비와 산책 중")
-            .setContentText("%d분 · %.2fkm".format(min, km))
+            .setContentTitle(tr(R.string.walking_with_nabi))
+            .setContentText(tr(R.string.min_km_2).format(min, km))
             .setContentIntent(open)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
@@ -139,8 +141,8 @@ class WalkTrackingService : Service(), LocationListener {
 
     private fun startAsForeground() {
         getSystemService(NotificationManager::class.java).createNotificationChannel(
-            NotificationChannel(CHANNEL, "산책 기록", NotificationManager.IMPORTANCE_LOW).apply {
-                description = "산책하는 동안 이동 경로를 기록할 때 표시돼요"
+            NotificationChannel(CHANNEL, tr(R.string.walk_recording), NotificationManager.IMPORTANCE_LOW).apply {
+                description = tr(R.string.shown_while_your_walking_route_is)
                 setShowBadge(false)
             })
         if (Build.VERSION.SDK_INT >= 29) startForeground(NOTIF_ID, notification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)

@@ -1,5 +1,7 @@
 package com.cbnu.nabi.ui
 
+
+import com.cbnu.nabi.tr
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Intent
@@ -80,7 +82,7 @@ class ChatActivity : Activity() {
         panel.addView(dragZone(), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(20)))
         panel.addView(header(), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(50)))
         // Safety notice kept from the original chat screen (instead of Figma's demo-only note).
-        panel.addView(label("나비는 의료 진단을 하지 않아요.\n위급할 때는 109(자살예방), 1577-0199(정신건강), 119로 연락하세요.", 9.5f,
+        panel.addView(label(tr(R.string.nabi_does_not_give_medical_diagnoses), 9.5f,
             Color.parseColor("#806E65"), bold = true).apply {
             gravity = Gravity.CENTER
             setLineSpacing(dp(2).toFloat(), 1f)
@@ -124,7 +126,7 @@ class ChatActivity : Activity() {
     private fun dragZone() = FrameLayout(this).apply {
         addView(View(this@ChatActivity).apply { background = rounded(Color.parseColor("#B7ACA5"), 99) },
             FrameLayout.LayoutParams(dp(47), dp(5), Gravity.CENTER))
-        contentDescription = "끌어올려 크게 보기, 끌어내려 닫기"
+        contentDescription = tr(R.string.drag_up_to_expand_drag_down)
         setOnTouchListener(sheetDrag)
     }
 
@@ -190,10 +192,10 @@ class ChatActivity : Activity() {
         setOnTouchListener(sheetDrag)
         addView(FrameLayout(this@ChatActivity).apply {
             addView(icon(R.drawable.ic_chevron_down, Palette.ink, 22), FrameLayout.LayoutParams(dp(22), dp(22), Gravity.CENTER))
-            contentDescription = "대화 닫기"
+            contentDescription = tr(R.string.close_chat)
             setOnClickListener { close() }
         }, FrameLayout.LayoutParams(dp(42), dp(42), Gravity.START or Gravity.CENTER_VERTICAL).apply { leftMargin = dp(9) })
-        addView(label("${prefs.catName}와 대화하기", 19f, title = true),
+        addView(label(tr(R.string.chat_with, prefs.catName), 19f, title = true),
             FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER))
         addView(View(this@ChatActivity).apply { setBackgroundColor(Color.parseColor("#EADCD3")) },
             FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1), Gravity.BOTTOM))
@@ -205,7 +207,7 @@ class ChatActivity : Activity() {
         setPadding(dp(12), dp(10), dp(12), dp(12))
         setBackgroundColor(Color.argb(250, 255, 250, 246))
         input = EditText(this@ChatActivity).apply {
-            hint = "${prefs.catName}에게 이야기해 보세요..."
+            hint = tr(R.string.tell_anything, prefs.catName)
             textSize = 13f
             maxLines = 4
             minHeight = dp(44)
@@ -230,7 +232,7 @@ class ChatActivity : Activity() {
             background = rounded(Color.parseColor("#9D7BC4"), 999)
             elevation = dp(3).toFloat()
             addView(icon(R.drawable.ic_send, Color.WHITE, 20), FrameLayout.LayoutParams(dp(20), dp(20), Gravity.CENTER))
-            contentDescription = "메시지 전송"
+            contentDescription = tr(R.string.send_message)
             setOnClickListener { sendMessage() }
         }
         addView(send, LinearLayout.LayoutParams(dp(44), dp(44)).apply { leftMargin = dp(8) })
@@ -238,7 +240,7 @@ class ChatActivity : Activity() {
         if (preview) {
             input.isEnabled = false
             input.isFocusable = false
-            input.hint = "튜토리얼 중에는 메시지를 보낼 수 없어요"
+            input.hint = tr(R.string.you_can_t_send_messages_during)
         }
     }
 
@@ -281,12 +283,12 @@ class ChatActivity : Activity() {
     // ---------------- conversation (unchanged behaviour) ----------------
     private fun loadHistory() {
         if (prefs.conversationId == null) {
-            addBubble("냥! 오늘 하루는 어땠어? 잠 이야기든 걱정이든 편하게 말해줘.", fromUser = false, time = now())
+            addBubble(tr(R.string.meow_how_was_your_day_tell), fromUser = false, time = now())
             return
         }
         bg({ api.chatHistory() }) { r ->
             r.onSuccess { msgs ->
-                if (msgs.isEmpty()) addBubble("냥! 오늘 하루는 어땠어?", fromUser = false, time = now())
+                if (msgs.isEmpty()) addBubble(tr(R.string.meow_how_was_your_day), fromUser = false, time = now())
                 for (m in msgs) addBubble(m.content, m.fromUser, crisis = isCrisis(m))
             }.onFailure { addSystem(it.friendly()) }
         }
@@ -298,13 +300,13 @@ class ChatActivity : Activity() {
         if (preview) return
         val text = input.text.toString().trim()
         if (text.isEmpty() || sending) return
-        if (text.length > 1000) { addSystem("메시지는 1000자까지 보낼 수 있어요"); return }
+        if (text.length > 1000) { addSystem(tr(R.string.messages_can_be_up_to_1000)); return }
         sending = true
         input.setText("")
         updateSend()
         addBubble(text, fromUser = true, time = now())
         val thinking = addBubble("…", fromUser = false, time = now())
-        CatPresence.react(this, CatAction.SIT, "음… 생각 중이다냥")
+        CatPresence.react(this, CatAction.SIT, tr(R.string.hmm_thinking_meow))
 
         bg({ api.sendChat(text, "SIT") }) { r ->
             sending = false
@@ -326,7 +328,7 @@ class ChatActivity : Activity() {
 
     private fun now(): String {
         val t = LocalTime.now()
-        return "${if (t.hour >= 12) "오후" else "오전"} ${(t.hour % 12).let { if (it == 0) 12 else it }}:%02d".format(t.minute)
+        return Modals.format12(t)
     }
 
     // ---------- bubbles (Figma chat-message) ----------

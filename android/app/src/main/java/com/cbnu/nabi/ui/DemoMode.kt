@@ -1,5 +1,8 @@
 package com.cbnu.nabi.ui
 
+
+import com.cbnu.nabi.R
+import com.cbnu.nabi.tr
 import android.content.Context
 import android.content.Intent
 import android.widget.EditText
@@ -97,5 +100,5 @@ object DemoMode {
     }
 
     fun proposal() = MissionProposal(PROPOSAL_ID, ProposalKind.DIM_LIGHTS,
-        description = "요즘 잠들기까지 오래 걸렸어요.\n잠들기 전, 방의 조명을 조금 어둡게 해 볼까요?")
+        description = tr(R.string.it_s_been_taking_you_while))
 }

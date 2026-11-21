@@ -102,7 +102,7 @@ def intervention_payload(rec: dict | None) -> dict | None:
     }
 
 
-def generate(user_message: str, context: dict, intervention: dict | None, history: list[dict], persona: str = "friendly_supportive", request_id: str | None = None) -> GenerateResult:
+def generate(user_message: str, context: dict, intervention: dict | None, history: list[dict], persona: str = "friendly_supportive", request_id: str | None = None, language: str = "ko") -> GenerateResult:
     payload = {
         "request_id": request_id or new_request_id(),
         "user_message": user_message,
@@ -110,19 +110,20 @@ def generate(user_message: str, context: dict, intervention: dict | None, histor
         "intervention": intervention,
         "recent_history": history,
         "cat_persona": persona,
+        "language": language,
     }
     return _post("/internal/v1/llm/generate", payload, GenerateResult)
 
 
-def explain_intervention(context: dict, intervention: dict, persona: str = "friendly_supportive") -> InterventionResult:
-    payload = {"request_id": new_request_id(), "intervention": intervention, "context": context, "cat_persona": persona}
+def explain_intervention(context: dict, intervention: dict, persona: str = "friendly_supportive", language: str = "ko") -> InterventionResult:
+    payload = {"request_id": new_request_id(), "intervention": intervention, "context": context, "cat_persona": persona, "language": language}
     return _post("/internal/v1/llm/intervention", payload, InterventionResult)
 
 
-def mission_message(phase: str, title: str, description: str, category: str | None, reward_exp: int | None, persona: str = "friendly_supportive") -> MissionResult:
+def mission_message(phase: str, title: str, description: str, category: str | None, reward_exp: int | None, persona: str = "friendly_supportive", language: str = "ko") -> MissionResult:
     payload = {
         "request_id": new_request_id(), "phase": phase,
         "mission": {"title": title[:200], "description": description[:500], "category": category},
-        "reward_exp": reward_exp, "cat_persona": persona,
+        "reward_exp": reward_exp, "cat_persona": persona, "language": language,
     }
     return _post("/internal/v1/llm/mission", payload, MissionResult)

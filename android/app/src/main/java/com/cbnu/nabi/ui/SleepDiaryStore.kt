@@ -1,5 +1,8 @@
 package com.cbnu.nabi.ui
 
+
+import com.cbnu.nabi.R
+import com.cbnu.nabi.tr
 import android.content.Context
 import com.cbnu.nabi.data.ApiClient
 import org.json.JSONObject
@@ -46,7 +49,7 @@ data class DiaryEntry(
 }
 
 /** "5시간 55분" */
-fun formatDuration(min: Int): String = if (min / 60 == 0) "${min % 60}분" else "${min / 60}시간 ${min % 60}분"
+fun formatDuration(min: Int): String = if (min / 60 == 0) tr(R.string.min_2, min % 60) else tr(R.string.h_min, min / 60, min % 60)
 
 /**
  * Diary entries per logged-in email: the copies saved on THIS device plus a cache of the server's

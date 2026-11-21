@@ -1,5 +1,7 @@
 package com.cbnu.nabi.ui
 
+
+import com.cbnu.nabi.tr
 import android.app.Dialog
 import android.graphics.Color
 import android.graphics.RenderEffect
@@ -58,11 +60,11 @@ class SleepRecordSheet(
     private val sheet = BottomSheet(
         activity,
         when {
-            existing != null -> "수면 기록 수정"
-            date == LocalDate.now() -> "오늘의 수면 기록"
-            else -> "${date.monthValue}월 ${date.dayOfMonth}일 수면 기록"
+            existing != null -> tr(R.string.edit_sleep_record)
+            date == LocalDate.now() -> tr(R.string.today_s_sleep_record)
+            else -> tr(R.string.sleep_record_for, date.monthValue, date.dayOfMonth)
         },
-        "어젯밤의 수면과 생활 습관을 기록해요.",
+        tr(R.string.log_last_night_s_sleep_and),
     )
     private lateinit var bedBtn: TextView
     private lateinit var wakeBtn: TextView
@@ -77,7 +79,7 @@ class SleepRecordSheet(
     private var exerciseRow: View? = null
     private var refreshExercise: () -> Unit = {}
     private val errorText = activity.label("", 11f, Color.parseColor("#B45656"), bold = true)
-    private val saveText = activity.label("기록 저장", 15f, Color.WHITE, bold = true)
+    private val saveText = activity.label(tr(R.string.save_record), 15f, Color.WHITE, bold = true)
     private val saveBtn = LinearLayout(activity)
 
     init {
@@ -115,7 +117,7 @@ class SleepRecordSheet(
         sourceBadge.setTextColor(Color.WHITE)
         sourceBadge.background = activity.rounded(Color.parseColor("#7FB394"), 10)
         if (existing != null) {
-            sourceHelp.text = "Health Connect에 이 날 기록이 있어요. 저장된 일지 값을 보여주고 있어요."
+            sourceHelp.text = tr(R.string.health_connect_has_record_for_this)
             return
         }
         bedtime = n.bedtime.toLocalTime().withSecond(0).withNano(0)
@@ -124,8 +126,8 @@ class SleepRecordSheet(
         n.wakeAfterSleepOnsetMin?.let { awakeMinInput.setText(it.toString()) }
         n.awakenings?.let { awakeningsInput.setText(it.toString()) }
         updateTimeButtons()
-        sourceHelp.text = if (n.latencyMin != null) "Health Connect 수면 기록으로 채웠어요. 실제와 다르면 직접 고칠 수 있어요."
-        else "Health Connect에서 취침·기상 시각을 가져왔어요. 잠들기까지 걸린 시간과 밤중 각성은 직접 입력해 주세요."
+        sourceHelp.text = if (n.latencyMin != null) tr(R.string.filled_in_from_your_health_connect)
+        else tr(R.string.bedtime_and_wake_time_came_from)
     }
 
     /** Sleep onset = bedtime + latency, on the night before [date]. */
@@ -148,10 +150,10 @@ class SleepRecordSheet(
         }) { r ->
             val (access, min) = r.getOrNull() ?: (false to null)
             screenText.text = when {
-                !access -> "권한 필요 ›"
-                onset == null -> "취침 시각 선택 후 계산"
-                min == null -> "기록 없음"
-                else -> "${min}분 (자동)"
+                !access -> tr(R.string.permission_needed)
+                onset == null -> tr(R.string.calculated_after_you_pick_bedtime)
+                min == null -> tr(R.string.no_record)
+                else -> tr(R.string.min_auto, min)
             }
             screenText.setOnClickListener(if (!access) View.OnClickListener { activity.openPermissionSettings() } else null)
         }
@@ -197,29 +199,29 @@ class SleepRecordSheet(
     private fun timesCard(): View {
         val c = card()
         val title = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        title.addView(cardTitle("자동 수집된 수면 정보"), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        title.addView(cardTitle(tr(R.string.automatically_collected_sleep_info)), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         // FR-03-04: "데이터 없음" until a Health Connect sleep session is found ([applyNight]).
-        sourceBadge = activity.label("데이터 없음", 10f, Palette.muted, bold = true).apply {
+        sourceBadge = activity.label(tr(R.string.no_data), 10f, Palette.muted, bold = true).apply {
             setPadding(activity.dp(8), activity.dp(4), activity.dp(8), activity.dp(4))
             background = activity.rounded(Color.parseColor("#F1E6DD"), 10)
         }
         title.addView(sourceBadge)
         c.addView(title)
-        sourceHelp = help("수집값이 없거나 정확하지 않다면 직접 입력할 수 있어요.")
+        sourceHelp = help(tr(R.string.if_nothing_was_collected_or_it))
         c.addView(sourceHelp)
 
         bedBtn = timeButton { pickTime(true) }
         wakeBtn = timeButton { pickTime(false) }
-        c.addView(row(R.drawable.ic_bed, "취침 시각", bedBtn))
-        c.addView(row(R.drawable.ic_clock, "기상 시각", wakeBtn))
+        c.addView(row(R.drawable.ic_bed, tr(R.string.bedtime), bedBtn))
+        c.addView(row(R.drawable.ic_clock, tr(R.string.wake_time), wakeBtn))
 
-        awakeningsInput = numberInput("횟수", existing?.awakenings)
-        awakeMinInput = numberInput("시간", existing?.awakeMinutes)
+        awakeningsInput = numberInput(tr(R.string.times_2), existing?.awakenings)
+        awakeMinInput = numberInput(tr(R.string.minutes), existing?.awakeMinutes)
         val inputs = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL }
-        inputs.addView(unitBox(awakeningsInput, "회"), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f))
-        inputs.addView(unitBox(awakeMinInput, "분"), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f)
+        inputs.addView(unitBox(awakeningsInput, tr(R.string.times)), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f))
+        inputs.addView(unitBox(awakeMinInput, tr(R.string.min)), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f)
             .apply { leftMargin = activity.dp(5) })
-        c.addView(row(R.drawable.ic_moon, "밤중 각성", inputs))
+        c.addView(row(R.drawable.ic_moon, tr(R.string.night_waking), inputs))
         updateTimeButtons()
         return c
     }
@@ -261,8 +263,8 @@ class SleepRecordSheet(
         val c = card()
         val r = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         val texts = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
-        texts.addView(cardTitle("잠들기까지 걸린 시간"))
-        texts.addView(help("침대에 누운 뒤 잠들기까지의 시간이에요.", Palette.muted))
+        texts.addView(cardTitle(tr(R.string.time_to_fall_asleep)))
+        texts.addView(help(tr(R.string.time_from_getting_into_bed_until), Palette.muted))
         r.addView(texts, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
 
         val stepper = LinearLayout(activity).apply {
@@ -271,9 +273,9 @@ class SleepRecordSheet(
             background = activity.rounded(Palette.lavenderSoft, 13)
         }
         latencyText = activity.label("", 13f, bold = true).apply { gravity = Gravity.CENTER }
-        stepper.addView(stepButton(R.drawable.ic_minus, "5분 줄이기") { setLatency(latency - 5) })
+        stepper.addView(stepButton(R.drawable.ic_minus, tr(R.string.n_5_min_less)) { setLatency(latency - 5) })
         stepper.addView(latencyText, LinearLayout.LayoutParams(activity.dp(54), ViewGroup.LayoutParams.WRAP_CONTENT))
-        stepper.addView(stepButton(R.drawable.ic_plus, "5분 늘리기") { setLatency(latency + 5) })
+        stepper.addView(stepButton(R.drawable.ic_plus, tr(R.string.n_5_min_more)) { setLatency(latency + 5) })
         r.addView(stepper, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, activity.dp(38)))
         c.addView(r)
         setLatency(latency)
@@ -289,13 +291,13 @@ class SleepRecordSheet(
 
     private fun setLatency(v: Int) {
         latency = v.coerceIn(0, 720)
-        latencyText.text = "${latency}분"
+        latencyText.text = tr(R.string.min_2, latency)
         updateScreenTime()
     }
 
     private fun satisfactionCard(): View {
         val c = card()
-        c.addView(cardTitle("수면 만족도"))
+        c.addView(cardTitle(tr(R.string.sleep_satisfaction)))
         val chips = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL }
         val views = SATISFACTIONS.mapIndexed { i, label ->
             chip(label, filled = true).also { v ->
@@ -313,27 +315,27 @@ class SleepRecordSheet(
 
     private fun habitsCard(): View {
         val c = card()
-        c.addView(cardTitle("전날 생활 습관"), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        c.addView(cardTitle(tr(R.string.yesterday_s_habits)), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
             .apply { bottomMargin = activity.dp(8) })
-        napMinInput = numberInput("예: 30", existing?.napMin?.takeIf { it > 0 })
-        exerciseMinInput = numberInput("예: 30", existing?.exerciseMin?.takeIf { it > 0 })
-        val napMinRow = row(null, "낮잠 잔 시간", unitBox(napMinInput, "분"), 90)
-        val exerciseMinRow = row(null, "운동한 시간", unitBox(exerciseMinInput, "분"), 90)
-        c.addView(row(null, "전날 낮잠 여부", yesNo({ nap }) { nap = it; napMinRow.visibility = if (it) View.VISIBLE else View.GONE }, 0))
+        napMinInput = numberInput(tr(R.string.e_g_30), existing?.napMin?.takeIf { it > 0 })
+        exerciseMinInput = numberInput(tr(R.string.e_g_30), existing?.exerciseMin?.takeIf { it > 0 })
+        val napMinRow = row(null, tr(R.string.nap_time), unitBox(napMinInput, tr(R.string.min)), 90)
+        val exerciseMinRow = row(null, tr(R.string.exercise_time), unitBox(exerciseMinInput, tr(R.string.min)), 90)
+        c.addView(row(null, tr(R.string.napped_yesterday), yesNo({ nap }) { nap = it; napMinRow.visibility = if (it) View.VISIBLE else View.GONE }, 0))
         c.addView(napMinRow.apply { visibility = if (nap == true) View.VISIBLE else View.GONE })
-        c.addView(row(null, "오후 2시 이후 카페인 섭취", yesNo({ caffeine }) { caffeine = it }, 0))
-        c.addView(row(null, "전날 운동 여부", yesNo({ exercise }, { refreshExercise = it }) { exercise = it; exerciseMinRow.visibility = if (it) View.VISIBLE else View.GONE }, 0))
+        c.addView(row(null, tr(R.string.caffeine_after_2_pm_2), yesNo({ caffeine }) { caffeine = it }, 0))
+        c.addView(row(null, tr(R.string.exercised_yesterday), yesNo({ exercise }, { refreshExercise = it }) { exercise = it; exerciseMinRow.visibility = if (it) View.VISIBLE else View.GONE }, 0))
         c.addView(exerciseMinRow.apply { visibility = if (exercise == true) View.VISIBLE else View.GONE })
         exerciseRow = exerciseMinRow
-        screenText = activity.label("확인 중…", 11f, Palette.lavenderDeep, bold = true).apply { gravity = Gravity.CENTER_VERTICAL or Gravity.END }
-        c.addView(row(null, "잠들기 전 2시간 화면 사용", screenText, 0))
+        screenText = activity.label(tr(R.string.checking), 11f, Palette.lavenderDeep, bold = true).apply { gravity = Gravity.CENTER_VERTICAL or Gravity.END }
+        c.addView(row(null, tr(R.string.screen_time_2_h_before_sleep), screenText, 0))
         return c
     }
 
     private fun yesNo(get: () -> Boolean?, exposeRefresh: ((() -> Unit) -> Unit)? = null, set: (Boolean) -> Unit): View {
         val box = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL }
-        val yes = chip("예", filled = false)
-        val no = chip("아니요", filled = false)
+        val yes = chip(tr(R.string.yes), filled = false)
+        val no = chip(tr(R.string.no), filled = false)
         fun refresh() { styleChip(yes, get() == true, false); styleChip(no, get() == false, false) }
         yes.setOnClickListener { set(true); refresh() }
         no.setOnClickListener { set(false); refresh() }
@@ -360,13 +362,13 @@ class SleepRecordSheet(
 
     // ---------------- time picker ----------------
     private fun updateTimeButtons() {
-        bedBtn.text = bedtime?.let(::format12) ?: "시간 선택"
-        wakeBtn.text = wakeTime?.let(::format12) ?: "시간 선택"
+        bedBtn.text = bedtime?.let(::format12) ?: tr(R.string.pick_time)
+        wakeBtn.text = wakeTime?.let(::format12) ?: tr(R.string.pick_time)
     }
 
     private fun pickTime(isBed: Boolean) {
         val initial = (if (isBed) bedtime else wakeTime) ?: if (isBed) LocalTime.of(23, 0) else LocalTime.of(7, 0)
-        Modals.timePicker(activity, if (isBed) "취침 시각 수정" else "기상 시각 수정", initial, listOf(sheet.decorView)) { t ->
+        Modals.timePicker(activity, if (isBed) tr(R.string.edit_bedtime) else tr(R.string.edit_wake_time), initial, listOf(sheet.decorView)) { t ->
             if (isBed) bedtime = t else wakeTime = t
             updateTimeButtons()
             updateScreenTime()
@@ -400,26 +402,26 @@ class SleepRecordSheet(
         val n = nap; val c = caffeine; val e = exercise
 
         // Input checks before saving (FR-03-05). Times are required by the server.
-        if (bed == null || wake == null) return showError("취침 시각과 기상 시각을 모두 선택해 주세요.")
-        if (sat == null || n == null || c == null || e == null) return showError("수면 만족도와 생활 습관 항목을 모두 선택해 주세요.")
+        if (bed == null || wake == null) return showError(tr(R.string.pick_both_bedtime_and_wake_time))
+        if (sat == null || n == null || c == null || e == null) return showError(tr(R.string.answer_sleep_satisfaction_and_all_habit))
         if (awakeMinInput.text.isNotEmpty() && awakeMin == null || awakeningsInput.text.isNotEmpty() && awakenings == null)
-            return showError("밤중 각성은 숫자로 입력해 주세요.")
+            return showError(tr(R.string.enter_night_waking_as_numbers))
         // 예 → minutes are required (the server analyses durations); 아니요 → 0분.
         val napMin = if (n) napMinInput.text.toString().toIntOrNull() else 0
         val exerciseMin = if (e) exerciseMinInput.text.toString().toIntOrNull() else 0
-        if (napMin == null || n && napMin !in 1..1440) return showError("낮잠 잔 시간을 분 단위로 입력해 주세요.")
-        if (exerciseMin == null || e && exerciseMin !in 1..1440) return showError("운동한 시간을 분 단위로 입력해 주세요.")
+        if (napMin == null || n && napMin !in 1..1440) return showError(tr(R.string.enter_nap_time_in_minutes))
+        if (exerciseMin == null || e && exerciseMin !in 1..1440) return showError(tr(R.string.enter_exercise_time_in_minutes))
 
         val zone = ZoneId.systemDefault()
         val wakeAt = ZonedDateTime.of(date, wake, zone)
         var bedAt = ZonedDateTime.of(date, bed, zone)
         if (!bedAt.isBefore(wakeAt)) bedAt = bedAt.minusDays(1) // went to bed the evening before
         val spanMin = java.time.Duration.between(bedAt, wakeAt).toMinutes()
-        if (wakeAt.isAfter(ZonedDateTime.now(zone).plusMinutes(10))) return showError("기상 시각이 아직 지나지 않았어요.")
-        if (latency + (awakeMin ?: 0) > spanMin) return showError("잠들기까지 걸린 시간과 밤중 각성 시간이 누워 있던 시간보다 길어요.")
+        if (wakeAt.isAfter(ZonedDateTime.now(zone).plusMinutes(10))) return showError(tr(R.string.that_wake_time_hasn_t_come))
+        if (latency + (awakeMin ?: 0) > spanMin) return showError(tr(R.string.time_to_fall_asleep_plus_time))
         showError(null)
 
-        setSaving("저장 중…", enabled = false)
+        setSaving(tr(R.string.saving), enabled = false)
         activity.bg({
             activity.api.createSleepRecord(
                 bedtime = bedAt,
@@ -447,15 +449,15 @@ class SleepRecordSheet(
                 store.put(DiaryEntry(date, "%02d:%02d".format(bed.hour, bed.minute), "%02d:%02d".format(wake.hour, wake.minute),
                     awakenings, awakeMin, latency, sat, n, napMin, c, e, exerciseMin, serverSaved = true, behaviorSaved = behaviorSaved))
                 if (!behaviorSaved) android.widget.Toast.makeText(activity,
-                    "수면 기록은 저장했지만 생활 습관은 서버에 저장하지 못했어요.", android.widget.Toast.LENGTH_LONG).show()
-                setSaving("저장 완료", enabled = false)
+                    tr(R.string.your_sleep_record_was_saved_but), android.widget.Toast.LENGTH_LONG).show()
+                setSaving(tr(R.string.saved), enabled = false)
                 saveBtn.postDelayed({ sheet.dismiss(); onSaved() }, 650)
             }.onFailure {
-                setSaving("다시 저장", enabled = true)
+                setSaving(tr(R.string.save_again), enabled = true)
                 showError(when ((it as? ApiException)?.code) {
-                    "DUPLICATE_RECORD" -> "이 날의 수면 기록이 이미 저장되어 있어요. 기록 수정은 준비 중이에요."
-                    "VALIDATION_ERROR" -> "입력한 시간을 다시 확인해 주세요."
-                    else -> "기록을 저장하지 못했어요. 잠시 후 다시 시도해 주세요. (${it.friendly()})"
+                    "DUPLICATE_RECORD" -> tr(R.string.sleep_record_for_this_day_is)
+                    "VALIDATION_ERROR" -> tr(R.string.please_check_times_you_entered)
+                    else -> tr(R.string.couldn_t_save_record_please_try, it.friendly())
                 })
             }
         }
@@ -464,11 +466,11 @@ class SleepRecordSheet(
     private fun setSaving(label: String, enabled: Boolean) {
         saveText.text = label
         saveBtn.isEnabled = enabled
-        saveBtn.alpha = if (enabled || label == "저장 완료") 1f else 0.75f
+        saveBtn.alpha = if (enabled || label == tr(R.string.saved)) 1f else 0.75f
     }
 
     companion object {
-        val SATISFACTIONS = listOf("매우 나쁨", "나쁨", "보통", "좋음", "매우 좋음")
+        val SATISFACTIONS get() = listOf(tr(R.string.very_bad), tr(R.string.bad), tr(R.string.moderate), tr(R.string.good), tr(R.string.very_good))
 
         fun format12(t: LocalTime): String = Modals.format12(t)
     }

@@ -1,5 +1,8 @@
 package com.cbnu.nabi.ui
 
+
+import com.cbnu.nabi.R
+import com.cbnu.nabi.tr
 import android.content.Context
 import com.cbnu.nabi.BuildConfig
 import java.time.LocalTime
@@ -32,7 +35,7 @@ object SleepScheduleRecommendations {
 
     /** UI sample (marked "UI 미리보기"; applying it never saves). Used only in debug builds. */
     val previewSample = RecommendedSchedule(
-        LocalTime.of(22, 45), LocalTime.of(7, 0), "현재 목표보다 취침 시각을 15분 앞당기는 제안이에요.", preview = true)
+        LocalTime.of(22, 45), LocalTime.of(7, 0), tr(R.string.suggestion_to_go_to_bed_15), preview = true)
 
     /**
      * Where recommendations come from. Runs on a background thread, so it may call the network.

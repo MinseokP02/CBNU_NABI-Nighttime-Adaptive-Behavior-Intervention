@@ -82,6 +82,13 @@ class MissionPhase(StrEnum):
     COMPLETE = "COMPLETE"
 
 
+class Language(StrEnum):
+    """Language of the text sent back to the user (the app's language)."""
+
+    KO = "ko"
+    EN = "en"
+
+
 class _Strict(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -120,6 +127,7 @@ class GenerateRequest(_Strict):
     intervention: ApprovedIntervention | None = None
     recent_history: list[HistoryTurn] = Field(default_factory=list, max_length=20)
     cat_persona: CatPersona = CatPersona.FRIENDLY_SUPPORTIVE
+    language: Language = Language.KO
 
 
 class GenerateResponse(BaseModel):
@@ -139,6 +147,7 @@ class InterventionRequest(_Strict):
     intervention: ApprovedIntervention
     context: PersonalContext = Field(default_factory=PersonalContext)
     cat_persona: CatPersona = CatPersona.FRIENDLY_SUPPORTIVE
+    language: Language = Language.KO
 
 
 class InterventionResponse(BaseModel):
@@ -164,6 +173,7 @@ class MissionRequest(_Strict):
     mission: MissionInfo
     reward_exp: int | None = Field(default=None, ge=0)
     cat_persona: CatPersona = CatPersona.FRIENDLY_SUPPORTIVE
+    language: Language = Language.KO
 
 
 class MissionResponse(BaseModel):

@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.exceptions import AppError
+from app.core.i18n import Lang, localize_recommendation, text
 from app.models.conversation import ChatMessage, Conversation
 from app.models.user import User
 from app.services import llm_client
@@ -26,12 +27,12 @@ from app.services.risk_service import analyze_risk
 PERSONAS = {"friendly_supportive", "calm_gentle", "playful"}
 
 # Used only when the LLM server is unreachable, so crisis messages still get help information.
-_LOCAL_CRISIS = re.compile(r"자살|죽고\s*싶|자해|살고\s*싶지\s*않|목숨을?\s*끊|사라지고\s*싶|극단적\s*(인\s*)?선택")
-LOCAL_CRISIS_REPLY = (
-    "많이 힘든 마음을 이야기해 줘서 고마워. 지금 혼자 견디지 않았으면 좋겠어. "
-    "자살예방상담전화 109(24시간), 정신건강위기상담 1577-0199에 바로 연락하거나, "
-    "위급하면 119에 도움을 요청해 줘."
+_LOCAL_CRISIS = re.compile(
+    r"자살|죽고\s*싶|자해|살고\s*싶지\s*않|목숨을?\s*끊|사라지고\s*싶|극단적\s*(인\s*)?선택"
+    r"|\bsuicid|\bkill\s+myself|\bself[-\s]?harm|\bwant\s+to\s+die|\bdon'?t\s+want\s+to\s+live|\bend\s+my\s+life",
+    re.IGNORECASE,
 )
+LOCAL_CRISIS_REPLY = text("crisis", "ko")
 
 
 def persona_for(user: User) -> str:
@@ -56,13 +57,14 @@ def _history(db: Session, conversation_id: str, limit: int) -> list[dict]:
     return [{"role": row.role, "content": row.content[:1000]} for row in reversed(rows)]
 
 
-def _fallback(message: str, rec: dict) -> dict:
+def _fallback(message: str, rec: dict, lang: Lang = "ko") -> dict:
     if _LOCAL_CRISIS.search(message):
-        return {"response": LOCAL_CRISIS_REPLY, "intent": "CRISIS", "emotion": "CONCERNED", "cat_action": "COMFORT", "intervention_category": None, "safety_status": "CRISIS", "source": "fallback"}
-    return {"response": f"이야기해 줘서 고마워. {rec['message']}", "intent": None, "emotion": "CALM", "cat_action": "SIT", "intervention_category": rec["category"] if rec.get("intervention_id") else None, "safety_status": "PASS", "source": "fallback"}
+        return {"response": text("crisis", lang), "intent": "CRISIS", "emotion": "CONCERNED", "cat_action": "COMFORT", "intervention_category": None, "safety_status": "CRISIS", "source": "fallback"}
+    rec = localize_recommendation(rec, lang)
+    return {"response": text("chat_fallback", lang, message=rec["message"]), "intent": None, "emotion": "CALM", "cat_action": "SIT", "intervention_category": rec["category"] if rec.get("intervention_id") else None, "safety_status": "PASS", "source": "fallback"}
 
 
-def send_message(db: Session, user: User, message: str, conversation_id: str | None) -> dict:
+def send_message(db: Session, user: User, message: str, conversation_id: str | None, lang: Lang = "ko") -> dict:
     settings = get_settings()
     conversation = _conversation(db, user, conversation_id)
     history = _history(db, conversation.conversation_id, settings.llm_history_messages)
@@ -79,12 +81,12 @@ def send_message(db: Session, user: User, message: str, conversation_id: str | N
     try:
         result = llm_client.generate(
             message, llm_client.context_payload(risk, baseline), llm_client.intervention_payload(rec),
-            history, persona_for(user), request_id,
+            history, persona_for(user), request_id, language=lang,
         ).model_dump()
     except llm_client.LLMUnavailable:
         if settings.llm_fail_mode == "error" and not _LOCAL_CRISIS.search(message):
             raise AppError(503, "LLM_UNAVAILABLE", "The conversation service is temporarily unavailable") from None
-        result = _fallback(message, rec)
+        result = _fallback(message, rec, lang)
     latency_ms = int((time.perf_counter() - started) * 1000)
 
     related = rec.get("intervention_id") if result.get("intervention_category") else None

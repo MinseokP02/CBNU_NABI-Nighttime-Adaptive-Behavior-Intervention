@@ -7,6 +7,7 @@ from app.schemas import (
     Emotion,
     Intent,
     InterventionCategory,
+    Language,
     MissionPhase,
 )
 
@@ -39,20 +40,63 @@ CATEGORY_GUIDANCE: dict[InterventionCategory, str] = {
 
 DEFAULT_CLOSER = "오늘도 편안한 밤 보내길 바라."
 
+INTENT_OPENER_EN: dict[Intent, str] = {
+    Intent.SLEEP_COMPLAINT: "Sleep must have been really hard for you.",
+    Intent.SLEEP_WORRY: "Worrying about sleep can make your heart feel even heavier.",
+    Intent.STRESS: "You've been feeling pretty tense lately, huh.",
+    Intent.MISSION_QUERY: "Let's do today's little mission together.",
+    Intent.MEDICAL_QUESTION: "For medicine or a diagnosis, talking with a doctor is the safest way.",
+    Intent.GREETING: "Hi! How was your day?",
+    Intent.GRATITUDE: "Thank you too. I'm happy we're together.",
+    Intent.SMALL_TALK: "Thanks for telling me.",
+    Intent.OTHER: "Thanks for telling me.",
+    Intent.CRISIS: "",
+}
 
-def chat_reply(intent: Intent, category: InterventionCategory | None) -> str:
-    opener = INTENT_OPENER.get(intent) or INTENT_OPENER[Intent.OTHER]
+CATEGORY_GUIDANCE_EN: dict[InterventionCategory, str] = {
+    InterventionCategory.STIMULUS_CONTROL: (
+        "Use your bed just for sleep, and if you can't fall asleep after about 20 minutes, "
+        "get up and rest quietly, then lie down again when you feel sleepy."
+    ),
+    InterventionCategory.SLEEP_SCHEDULE: "Let's start by waking up at about the same time every day.",
+    InterventionCategory.RELAXATION: "How about breathing slowly before bed and letting your body relax?",
+    InterventionCategory.COGNITIVE: (
+        "When sleep worries come up, write them down, and remind yourself that just resting tonight is okay."
+    ),
+    InterventionCategory.SLEEP_HYGIENE: (
+        "Let's skip caffeine late in the afternoon and put the screen down a little earlier before bed."
+    ),
+}
+
+DEFAULT_CLOSER_EN = "I hope you have a cozy night."
+
+
+def _en(lang: Language) -> bool:
+    return lang == Language.EN
+
+
+def chat_reply(intent: Intent, category: InterventionCategory | None, lang: Language = Language.KO) -> str:
+    openers = INTENT_OPENER_EN if _en(lang) else INTENT_OPENER
+    closer = DEFAULT_CLOSER_EN if _en(lang) else DEFAULT_CLOSER
+    opener = openers.get(intent) or openers[Intent.OTHER]
     if intent in {Intent.GREETING, Intent.GRATITUDE} or category is None:
-        return f"{opener} {DEFAULT_CLOSER}" if intent != Intent.GREETING else opener
-    return f"{opener} {CATEGORY_GUIDANCE[category]}"
+        return f"{opener} {closer}" if intent != Intent.GREETING else opener
+    return f"{opener} {intervention_guidance(category, lang)}"
 
 
-def intervention_guidance(category: InterventionCategory) -> str:
-    return CATEGORY_GUIDANCE[category]
+def intervention_guidance(category: InterventionCategory, lang: Language = Language.KO) -> str:
+    return (CATEGORY_GUIDANCE_EN if _en(lang) else CATEGORY_GUIDANCE)[category]
 
 
-def mission_message(phase: MissionPhase, title: str, reward_exp: int | None) -> tuple[str, Emotion, CatAction]:
+def mission_message(phase: MissionPhase, title: str, reward_exp: int | None, lang: Language = Language.KO) -> tuple[str, Emotion, CatAction]:
     title = title.strip()[:60]
+    if _en(lang):
+        if phase == MissionPhase.START:
+            return f"Let's start the '{title}' mission. Take your time.", Emotion.ENCOURAGING, CatAction.WALK
+        if phase == MissionPhase.PROGRESS:
+            return f"You're doing great on '{title}'. Just a little more.", Emotion.ENCOURAGING, CatAction.SIT
+        reward = f" You earned {reward_exp} EXP." if reward_exp else ""
+        return f"'{title}' mission complete! Really well done.{reward}", Emotion.HAPPY, CatAction.HAPPY
     if phase == MissionPhase.START:
         return f"'{title}' 미션을 시작해 보자. 천천히 해도 괜찮아.", Emotion.ENCOURAGING, CatAction.WALK
     if phase == MissionPhase.PROGRESS:

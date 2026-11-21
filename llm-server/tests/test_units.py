@@ -70,3 +70,56 @@ def test_prompt_contains_four_sections_and_trims_history():
     assert "86%" in system and "약물 언급 금지" in system
     assert len(messages) == 1 + 4 + 1
     assert messages[-1] == {"role": "user", "content": "잠이 안 와"}
+
+
+# ---------------- English (app language = en) ----------------
+from app.safety import crisis_response  # noqa: E402
+from app.schemas import Language  # noqa: E402
+
+
+@pytest.mark.parametrize(
+    ("text", "intent"),
+    [
+        ("I couldn't sleep again last night", Intent.SLEEP_COMPLAINT),
+        ("I'm worried I won't sleep tonight", Intent.SLEEP_WORRY),
+        ("Work stress is killing me", Intent.STRESS),
+        ("what's my mission today?", Intent.MISSION_QUERY),
+        ("Can I take melatonin?", Intent.MEDICAL_QUESTION),
+        ("I don't want to live anymore", Intent.CRISIS),
+        ("thanks nabi", Intent.GRATITUDE),
+        ("good night", Intent.GREETING),
+    ],
+)
+def test_classify_intent_english(text, intent):
+    assert classify_intent(text) == intent
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "You should take sleeping pills tonight.",
+        "You probably have insomnia.",
+        "Try sleep restriction and only sleep 5 hours.",
+        "A glass of wine will help you sleep.",
+        "This could be a serious illness.",
+    ],
+)
+def test_output_violations_english(text):
+    assert check_output(text).status == SafetyStatus.MODIFIED
+
+
+def test_english_fallback_sentences_are_english_and_safe():
+    sentences = [fallback.chat_reply(i, c, Language.EN) for i in Intent if i != Intent.CRISIS for c in [None, *InterventionCategory]]
+    sentences += [fallback.mission_message(p, "Walk", 20, Language.EN)[0] for p in MissionPhase]
+    sentences += [fallback.intervention_guidance(c, Language.EN) for c in InterventionCategory]
+    for sentence in sentences:
+        assert check_output(sentence).allowed, sentence
+        assert not any("가" <= ch <= "힣" for ch in sentence), sentence
+    assert "109" in crisis_response("en") and "1577-0199" in crisis_response("en")
+
+
+def test_prompt_asks_for_english():
+    req = GenerateRequest(request_id="r1", user_message="hi", language="en")
+    system = build_generate_messages(req, 4)[0]["content"]
+    assert "영어" in system and "한국어를 섞지 않는다" in system
+    assert "영어" not in build_generate_messages(GenerateRequest(request_id="r2", user_message="hi"), 4)[0]["content"].split("[언어]")[1].split("\n")[0]

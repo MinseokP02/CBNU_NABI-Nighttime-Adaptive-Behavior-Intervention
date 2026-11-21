@@ -1,5 +1,8 @@
 package com.cbnu.nabi.ui
 
+
+import com.cbnu.nabi.R
+import com.cbnu.nabi.tr
 import android.graphics.Typeface
 import android.text.InputType
 import android.view.View
@@ -18,7 +21,6 @@ class LoginPanel(private val activity: MainActivity, private val onLoggedIn: () 
     private val isiStatus: TextView
     private val catNameInput: EditText
     private val authStatus: TextView
-    private val server: ServerSection
     private var isi: Int? = null
 
     val view: View
@@ -26,33 +28,32 @@ class LoginPanel(private val activity: MainActivity, private val onLoggedIn: () 
     init {
         val page = activity.page()
         page.add(TextView(activity).apply {
-            text = "나비"
+            text = tr(R.string.nabi)
             textSize = 34f
             setTypeface(typeface, Typeface.BOLD)
         })
-        page.text("밤마다 곁에 있는 수면 코치 고양이예요.\n나비는 화면 위를 돌아다니고, 꾹 누르면 대화할 수 있어요.", 15f)
+        page.text(tr(R.string.sleep_coach_cat_who_stays_with), 15f)
 
-        page.heading("로그인")
+        page.heading(tr(R.string.log_in))
         emailInput = page.add(EditText(activity).apply {
-            hint = "이메일"
+            hint = tr(R.string.email)
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
             isSingleLine = true
         })
         pwInput = page.add(EditText(activity).apply {
-            hint = "비밀번호 (10자 이상)"
+            hint = tr(R.string.password_10_characters)
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
             isSingleLine = true
         })
-        page.text("회원가입할 때만", 12f, 0.7f)
-        isiStatus = page.text("ISI 검사: 회원가입을 누르면 7문항 검사를 진행해요", 13f)
+        page.text(tr(R.string.sign_up_only), 12f, 0.7f)
+        isiStatus = page.text(tr(R.string.isi_test_tapping_sign_up_starts), 13f)
         catNameInput = page.add(EditText(activity).apply {
-            hint = "고양이 이름 (기본: 나비)"
+            hint = tr(R.string.cat_name_default_nabi)
             isSingleLine = true
         })
         authStatus = page.text("", 13f)
-        page.buttonRow("로그인" to ::login, "회원가입" to ::register)
+        page.buttonRow(tr(R.string.log_in) to ::login, tr(R.string.sign_up) to ::register)
 
-        server = ServerSection(activity, page, "서버 설정 (개발용)")
         view = activity.scrollPage(page)
         DemoMode.prefillLogin(activity, emailInput, pwInput)
     }
@@ -60,9 +61,8 @@ class LoginPanel(private val activity: MainActivity, private val onLoggedIn: () 
     private fun login() {
         val email = emailInput.text.toString().trim()
         val pw = pwInput.text.toString()
-        if (email.isEmpty() || pw.isEmpty()) { authStatus.text = "이메일과 비밀번호를 입력해 주세요"; return }
-        server.save()
-        authStatus.text = "로그인 중…"
+        if (email.isEmpty() || pw.isEmpty()) { authStatus.text = tr(R.string.enter_your_email_and_password); return }
+        authStatus.text = tr(R.string.logging_in)
         activity.bg({ activity.api.login(email, pw) }) { r ->
             r.onSuccess { done() }.onFailure { authStatus.text = it.friendly() }
         }
@@ -72,22 +72,21 @@ class LoginPanel(private val activity: MainActivity, private val onLoggedIn: () 
         val email = emailInput.text.toString().trim()
         val pw = pwInput.text.toString()
         when {
-            email.isEmpty() -> { authStatus.text = "이메일을 입력해 주세요"; return }
-            pw.length < 10 -> { authStatus.text = "비밀번호는 10자 이상이어야 해요"; return }
+            email.isEmpty() -> { authStatus.text = tr(R.string.enter_your_email); return }
+            pw.length < 10 -> { authStatus.text = tr(R.string.password_must_be_at_least_10); return }
         }
         val score = isi
         if (score == null) {
             // ISI first; confirming the result continues the sign-up.
-            IsiSurvey(activity, "이 결과로 가입하기") { total ->
+            IsiSurvey(activity, tr(R.string.sign_up_with_this_result)) { total ->
                 isi = total
-                isiStatus.text = "ISI 검사 결과: ${total}점 · ${IsiSurvey.band(total)}"
+                isiStatus.text = tr(R.string.isi_result_pts, total, IsiSurvey.band(total))
                 register()
             }.show()
             return
         }
-        val catName = catNameInput.text.toString().trim().ifEmpty { "나비" }
-        server.save()
-        authStatus.text = "가입 중…"
+        val catName = catNameInput.text.toString().trim().ifEmpty { tr(R.string.nabi) }
+        authStatus.text = tr(R.string.signing_up)
         activity.bg({
             activity.api.register(email, pw, score, catName)
             activity.api.login(email, pw)

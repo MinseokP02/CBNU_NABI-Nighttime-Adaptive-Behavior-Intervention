@@ -1,5 +1,8 @@
 package com.cbnu.nabi.data
 
+
+import com.cbnu.nabi.R
+import com.cbnu.nabi.tr
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
@@ -165,13 +168,16 @@ class ApiClient(private val prefs: Prefs) {
         val conn = try {
             URL(prefs.baseUrl + API_PREFIX + path).openConnection() as HttpURLConnection
         } catch (e: IOException) {
-            throw ApiException(0, "BAD_URL", "서버 주소를 확인해 주세요: ${prefs.baseUrl}")
+            throw ApiException(0, "BAD_URL", tr(R.string.check_server_address, prefs.baseUrl))
         }
         try {
             conn.requestMethod = method
             conn.connectTimeout = 8_000
             conn.readTimeout = 25_000 // backend waits up to LLM_TIMEOUT_SECONDS (12s) for the LLM
             conn.setRequestProperty("Accept", "application/json")
+            // The server answers user-facing text (catalog, fallback, LLM replies) in the app's language.
+            conn.setRequestProperty("Accept-Language",
+                com.cbnu.nabi.NabiApp.appContext.resources.configuration.locales[0].toLanguageTag())
             if (auth) prefs.token?.let { conn.setRequestProperty("Authorization", "Bearer $it") }
             if (body != null) {
                 conn.doOutput = true
@@ -187,7 +193,7 @@ class ApiClient(private val prefs: Prefs) {
             }
             return text
         } catch (e: IOException) {
-            throw ApiException(0, "NETWORK_ERROR", "서버에 연결할 수 없어요 (${prefs.baseUrl})")
+            throw ApiException(0, "NETWORK_ERROR", tr(R.string.can_t_reach_server, prefs.baseUrl))
         } finally {
             conn.disconnect()
         }
@@ -205,14 +211,14 @@ class ApiClient(private val prefs: Prefs) {
         } catch (_: JSONException) {
         }
         val friendly = when (code) {
-            "UNAUTHORIZED" -> if (msg?.contains("incorrect") == true) "이메일 또는 비밀번호가 맞지 않아요" else "다시 로그인해 주세요"
-            "DUPLICATE_RECORD" -> if (msg?.contains("Email") == true) "이미 가입된 이메일이에요" else "이미 기록이 있어요"
-            "VALIDATION_ERROR" -> "입력값을 확인해 주세요" + (msg?.let { " ($it)" } ?: "")
-            "RATE_LIMITED" -> "잠깐 쉬었다가 다시 말 걸어 주세요"
-            "LLM_UNAVAILABLE" -> "나비가 지금 대답하기 어려워요. 잠시 후 다시 시도해 주세요"
-            "MISSION_NOT_VERIFIED" -> "아직 미션 조건을 만족하는 기록이 없어요"
-            "MISSION_EXPIRED" -> "기한이 지난 미션이에요"
-            else -> msg ?: "요청을 처리하지 못했어요 ($status)"
+            "UNAUTHORIZED" -> if (msg?.contains("incorrect") == true) tr(R.string.wrong_email_or_password) else tr(R.string.please_log_in_again)
+            "DUPLICATE_RECORD" -> if (msg?.contains("Email") == true) tr(R.string.this_email_is_already_registered) else tr(R.string.record_already_exists)
+            "VALIDATION_ERROR" -> tr(R.string.please_check_your_input) + (msg?.let { " ($it)" } ?: "")
+            "RATE_LIMITED" -> tr(R.string.take_short_break_then_talk_to)
+            "LLM_UNAVAILABLE" -> tr(R.string.nabi_can_t_answer_right_now)
+            "MISSION_NOT_VERIFIED" -> tr(R.string.no_record_meets_mission_goal_yet)
+            "MISSION_EXPIRED" -> tr(R.string.this_mission_has_expired)
+            else -> msg ?: tr(R.string.couldn_t_process_request, status)
         }
         return ApiException(status, code, friendly)
     }

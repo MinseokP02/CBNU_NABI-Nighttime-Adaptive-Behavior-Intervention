@@ -1,5 +1,7 @@
 package com.cbnu.nabi.ui
 
+
+import com.cbnu.nabi.tr
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
@@ -41,7 +43,7 @@ class HomePanel(private val activity: MainActivity) {
         background = activity.rounded(Color.argb(153, 255, 249, 243), 999)
     }
     /** Fixed note beside the 부르기 button while Nabi is out on the home screen. */
-    private val outHint = activity.label("나비는 지금 밖에서 놀고 있어요. 불러 보세요", 11f, Color.argb(210, 74, 48, 39), bold = true).apply {
+    private val outHint = activity.label(tr(R.string.nabi_is_out_playing_call_nabi), 11f, Color.argb(210, 74, 48, 39), bold = true).apply {
         setPadding(activity.dp(11), activity.dp(6), activity.dp(11), activity.dp(6))
         background = activity.cardBg(Color.argb(225, 255, 249, 243), 999, Color.argb(150, 185, 155, 137))
         visibility = View.GONE
@@ -50,7 +52,7 @@ class HomePanel(private val activity: MainActivity) {
     private val roomCat = RoomCat(activity, floor)
 
     private val coinText = activity.label("", 14f, bold = true)
-    private val missionText = activity.label("미션", 12f, bold = true)
+    private val missionText = activity.label(tr(R.string.missions_2), 12f, bold = true)
 
     // analysis card
     private val analysisBody = FrameLayout(activity)
@@ -134,12 +136,12 @@ class HomePanel(private val activity: MainActivity) {
         }
         val titles = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
         val titleRow = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        titleRow.addView(activity.label("나비의 공간", 24f, title = true))
+        titleRow.addView(activity.label(tr(R.string.nabi_s_room), 24f, title = true))
         titleRow.addView(activity.icon(R.drawable.ic_cat_face, Color.parseColor("#9B604D"), 20).apply {
             (layoutParams as LinearLayout.LayoutParams).leftMargin = activity.dp(6)
         })
         titles.addView(titleRow)
-        titles.addView(activity.label("오늘도 나비와\n편안한 하루를 보내요.", 11f, Palette.ink, bold = true).apply {
+        titles.addView(activity.label(tr(R.string.have_cozy_day_with_nabi), 11f, Palette.ink, bold = true).apply {
             setPadding(0, activity.dp(6), 0, 0)
             setLineSpacing(activity.dp(2).toFloat(), 1f)
         })
@@ -151,7 +153,7 @@ class HomePanel(private val activity: MainActivity) {
             addView(coinBadge())
             addView(coinText, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
                 .apply { leftMargin = activity.dp(6) })
-            contentDescription = "보유 코인"
+            contentDescription = tr(R.string.coins)
         }
         actions.addView(coin)
         // missions (FR-06-01)
@@ -159,7 +161,7 @@ class HomePanel(private val activity: MainActivity) {
             addView(activity.icon(R.drawable.ic_check, Palette.lavenderDeep, 14))
             addView(missionText, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
                 .apply { leftMargin = activity.dp(4) })
-            contentDescription = "오늘의 미션"
+            contentDescription = tr(R.string.today_s_missions)
             setOnClickListener { openMissions() }
         }
         missionButton = missionBtn
@@ -171,7 +173,7 @@ class HomePanel(private val activity: MainActivity) {
             elevation = activity.dp(2).toFloat()
             addView(activity.icon(R.drawable.ic_store, Color.parseColor("#9B604D"), 19),
                 FrameLayout.LayoutParams(activity.dp(19), activity.dp(19), Gravity.CENTER))
-            contentDescription = "상점 열기"
+            contentDescription = tr(R.string.open_shop)
             setOnClickListener { activity.startActivity(Intent(activity, ShopActivity::class.java)) }
         }
         storeButton = store
@@ -206,7 +208,7 @@ class HomePanel(private val activity: MainActivity) {
             background = activity.cardBg(Color.argb(240, 255, 249, 243), 20, Color.argb(178, 185, 155, 137))
             elevation = activity.dp(4).toFloat()
             // Card body → 나의 수면 분석 sheet. "기록하기" has its own listener, so it never triggers this.
-            contentDescription = "나의 수면 분석. 눌러서 자세히 보기"
+            contentDescription = tr(R.string.my_sleep_analysis_tap_for_details)
             setOnClickListener { openAnalysis() }
         }
         val title = LinearLayout(activity).apply {
@@ -215,7 +217,7 @@ class HomePanel(private val activity: MainActivity) {
             setPadding(activity.dp(14), 0, activity.dp(11), 0)
         }
         title.addView(activity.icon(R.drawable.ic_chart, Palette.lavender, 19))
-        title.addView(activity.label("나의 수면 분석", 16f, title = true),
+        title.addView(activity.label(tr(R.string.my_sleep_analysis), 16f, title = true),
             LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { leftMargin = activity.dp(7) })
         val record = LinearLayout(activity).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -223,7 +225,7 @@ class HomePanel(private val activity: MainActivity) {
             setPadding(activity.dp(10), 0, activity.dp(10), 0)
             background = activity.rounded(Palette.lavenderSoft, 11)
             addView(activity.icon(R.drawable.ic_edit, Color.parseColor("#71568D"), 13))
-            addView(activity.label("기록하기", 11f, Color.parseColor("#71568D"), bold = true),
+            addView(activity.label(tr(R.string.log_sleep), 11f, Color.parseColor("#71568D"), bold = true),
                 LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
                     .apply { leftMargin = activity.dp(4) })
             setOnClickListener { activity.openSleepRecord() }
@@ -264,15 +266,15 @@ class HomePanel(private val activity: MainActivity) {
         }
         val head = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         head.addView(activity.icon(R.drawable.ic_moon, Color.parseColor("#8F78B5"), 20))
-        head.addView(activity.label("총 수면시간", 11f, Palette.muted, bold = true),
+        head.addView(activity.label(tr(R.string.total_sleep), 11f, Palette.muted, bold = true),
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { leftMargin = activity.dp(5) })
         left.addView(head)
         left.addView(if (e != null) activity.label(formatDuration(e.totalSleepMin), 21f, title = true).apply { setPadding(0, activity.dp(5), 0, 0) }
-            else activity.label("기록 없음", 15f, Palette.muted, bold = true).apply { setPadding(0, activity.dp(8), 0, 0) })
+            else activity.label(tr(R.string.no_record), 15f, Palette.muted, bold = true).apply { setPadding(0, activity.dp(8), 0, 0) })
         // One small line: the record's date when it isn't today's, otherwise the baseline status (FR-04-02).
         val sub = when {
-            e != null && e.date != LocalDate.now() -> "${e.date.monthValue}월 ${e.date.dayOfMonth}일 기록"
-            state != null && state.baselineStatus != "ready" -> "기준선 수집 중 · 유효 ${state.baselineValidDays}일"
+            e != null && e.date != LocalDate.now() -> tr(R.string.record_for, e.date.monthValue, e.date.dayOfMonth)
+            state != null && state.baselineStatus != "ready" -> tr(R.string.building_baseline_valid_days, state.baselineValidDays)
             else -> null
         }
         if (sub != null) left.addView(activity.label(sub, 9.5f, Palette.muted).apply { setPadding(0, activity.dp(5), 0, 0) })
@@ -283,8 +285,8 @@ class HomePanel(private val activity: MainActivity) {
             orientation = LinearLayout.VERTICAL
             setPadding(activity.dp(14), 0, activity.dp(14), 0)
         }
-        right.addView(metric("수면 효율", e?.let { "${it.efficiencyPct}%" } ?: "—"))
-        right.addView(metric("수면 만족도", e?.satisfaction?.let { SleepRecordSheet.SATISFACTIONS[it - 1] } ?: "—"),
+        right.addView(metric(tr(R.string.sleep_efficiency), e?.let { "${it.efficiencyPct}%" } ?: "—"))
+        right.addView(metric(tr(R.string.sleep_satisfaction), e?.satisfaction?.let { SleepRecordSheet.SATISFACTIONS[it - 1] } ?: "—"),
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = activity.dp(10) })
         row.addView(right, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 0.52f))
         analysisBody.addView(row, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
@@ -326,7 +328,7 @@ class HomePanel(private val activity: MainActivity) {
 
     // ---------------- missions (FR-06-01, existing feature) ----------------
     private fun openMissions() {
-        val sheet = BottomSheet(activity, "나의 미션", "수락한 미션을 확인하고, 해냈다면 완료해 주세요.")
+        val sheet = BottomSheet(activity, tr(R.string.my_missions), tr(R.string.check_missions_you_accepted_and_mark))
         missionSheet = sheet
         sheet.onDismiss = { missionSheet = null }
         renderMissions(sheet.body)
@@ -343,7 +345,7 @@ class HomePanel(private val activity: MainActivity) {
 
     private fun updateMissionCount() {
         val n = missions.size + proposalStore().accepted().count { !it.done }
-        missionText.text = if (n == 0) "미션" else "미션 $n"
+        missionText.text = if (n == 0) tr(R.string.missions_2) else tr(R.string.missions, n)
     }
 
     /**
@@ -354,7 +356,7 @@ class HomePanel(private val activity: MainActivity) {
         body.root.removeAllViews()
         val accepted = proposalStore().accepted().sortedBy { it.done } // 진행 중 first
         if (missions.isEmpty() && accepted.isEmpty()) {
-            body.add(activity.label("아직 진행 중인 미션이 없어요.\n나비가 제안한 미션을 수락하면 여기에서 볼 수 있어요.", 13f, Palette.muted).apply {
+            body.add(activity.label(tr(R.string.no_missions_in_progress_yet_missions), 13f, Palette.muted).apply {
                 gravity = Gravity.CENTER
                 setLineSpacing(activity.dp(3).toFloat(), 1f)
                 setPadding(0, activity.dp(18), 0, activity.dp(18))
@@ -363,15 +365,15 @@ class HomePanel(private val activity: MainActivity) {
         }
         for (m in accepted) {
             val card = missionCard(m.proposal.title, m.proposal.description, done = m.done, iconRes = m.proposal.kind.iconRes)
-            if (m.proposal.preview) card.text("UI 미리보기", 11f, 0.6f)
+            if (m.proposal.preview) card.text(tr(R.string.ui_preview), 11f, 0.6f)
             if (!m.done && m.proposal.verify == VerifyMode.AUTO) {
                 // Confirmed from data only: no 완료했어요 button, and never "checking" unless it is.
                 card.add(autoCheckNote(m))
             } else if (!m.done) {
-                val btn = card.add(Button(activity).apply { text = "완료했어요" }, matchWidth = false)
+                val btn = card.add(Button(activity).apply { text = tr(R.string.i_did_it) }, matchWidth = false)
                 btn.setOnClickListener {
                     proposalStore().complete(m.proposal)
-                    Toast.makeText(activity, "미션을 완료했어요", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(activity, tr(R.string.mission_completed), Toast.LENGTH_SHORT).show()
                     onMissionsChanged()
                     if (DemoMode.active && m.proposal.id == DemoMode.PROPOSAL_ID) onDemoMissionDone()
                 }
@@ -380,8 +382,8 @@ class HomePanel(private val activity: MainActivity) {
         }
         for (m in missions) {
             val card = missionCard(m.title, m.description, done = false, iconRes = null)
-            card.text("보상 EXP ${m.rewardExp} · 기한 ${m.deadline.take(16).replace('T', ' ')}", 12f, 0.7f)
-            val btn = card.add(Button(activity).apply { text = "완료했어요" }, matchWidth = false)
+            card.text(tr(R.string.reward_exp_due, m.rewardExp, m.deadline.take(16).replace('T', ' ')), 12f, 0.7f)
+            val btn = card.add(Button(activity).apply { text = tr(R.string.i_did_it) }, matchWidth = false)
             btn.setOnClickListener {
                 btn.isEnabled = false
                 activity.bg({ activity.api.completeMission(m.missionId) }) { r ->
@@ -392,7 +394,7 @@ class HomePanel(private val activity: MainActivity) {
                         refresh()
                     }.onFailure {
                         Toast.makeText(activity, it.friendly(), Toast.LENGTH_LONG).show()
-                        catReact(CatAction.COMFORT, "괜찮아, 기록하고 다시 해보자냥")
+                        catReact(CatAction.COMFORT, tr(R.string.it_s_okay_log_it_and))
                     }
                 }
             }
@@ -403,9 +405,9 @@ class HomePanel(private val activity: MainActivity) {
     /** Status line for an AUTO mission in progress, matching what the data owner reported. */
     private fun autoCheckNote(m: AcceptedMission): View {
         val (iconRes, text) = when (m.autoCheck) {
-            AutoCheck.NOT_CONNECTED -> R.drawable.ic_info to "활동 데이터가 연결되면 자동으로 완료를 확인해요."
-            AutoCheck.CHECKING -> R.drawable.ic_clock to "자동으로 완료를 확인하고 있어요."
-            AutoCheck.UNAVAILABLE -> R.drawable.ic_shield to "활동 데이터를 확인할 수 없어요."
+            AutoCheck.NOT_CONNECTED -> R.drawable.ic_info to tr(R.string.once_activity_data_is_connected_completion)
+            AutoCheck.CHECKING -> R.drawable.ic_clock to tr(R.string.checking_completion_automatically)
+            AutoCheck.UNAVAILABLE -> R.drawable.ic_shield to tr(R.string.can_t_read_activity_data)
         }
         val box = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
@@ -423,7 +425,7 @@ class HomePanel(private val activity: MainActivity) {
         }
         // Permission/data problem: only a way to the permission settings, no manual-complete fallback.
         if (m.autoCheck == AutoCheck.UNAVAILABLE) {
-            box.addView(activity.label("권한 설정 확인하기 ›", 11.5f, Color.parseColor("#8467A8"), bold = true).apply {
+            box.addView(activity.label(tr(R.string.check_permission_settings), 11.5f, Color.parseColor("#8467A8"), bold = true).apply {
                 setPadding(activity.dp(22), activity.dp(8), 0, activity.dp(2))
                 setOnClickListener { activity.openPermissionSettings() }
             })
@@ -441,7 +443,7 @@ class HomePanel(private val activity: MainActivity) {
             (layoutParams as LinearLayout.LayoutParams).rightMargin = activity.dp(6)
         })
         head.addView(activity.label(title, 16f, title = true), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        head.addView(activity.label(if (done) "완료" else "진행 중", 10.5f,
+        head.addView(activity.label(if (done) tr(R.string.done) else tr(R.string.in_progress), 10.5f,
             if (done) Palette.muted else Palette.lavenderDeep, bold = true).apply {
             setPadding(activity.dp(9), activity.dp(4), activity.dp(9), activity.dp(4))
             background = activity.rounded(if (done) Color.parseColor("#F1EAE4") else Palette.lavenderSoft, 999)
@@ -487,7 +489,7 @@ class HomePanel(private val activity: MainActivity) {
         DemoMode.windDownArmed = true
         root.postDelayed({
             missionSheet?.dismiss()
-            catReact(CatAction.HAPPY, "잘했다냥! 이제 잘 준비하자냥")
+            catReact(CatAction.HAPPY, tr(R.string.well_done_meow_let_s_get))
         }, 500)
     }
 
@@ -598,7 +600,7 @@ class HomePanel(private val activity: MainActivity) {
                     val inImage = saved.mapValues { (_, p) -> screenToImage(p, root.width, root.height) }
                     val ok = ShopStore.savePlacements(activity, inImage) &&
                         stored.all { ShopStore.unequip(activity, it) }
-                    if (!ok) Toast.makeText(activity, "배치를 저장하지 못했어요", Toast.LENGTH_SHORT).show()
+                    if (!ok) Toast.makeText(activity, tr(R.string.couldn_t_save_layout), Toast.LENGTH_SHORT).show()
                 }
                 exitDecorate()
             })
@@ -678,7 +680,7 @@ class HomePanel(private val activity: MainActivity) {
         if (decorator != null || !CatPresence.showInRoom || !root.isAttachedToWindow || touchHintsLeft <= 0) return
         val (ax, ay) = roomCat.anchor() ?: return
         touchHintsLeft--
-        hint.text = "나비를 터치해 보세요"
+        hint.text = tr(R.string.try_touching_nabi)
         hint.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED)
         val x = (floor.left + ax - hint.measuredWidth / 2f).toInt().coerceIn(activity.dp(8), root.width - hint.measuredWidth - activity.dp(8))
         val y = (floor.top + ay - hint.measuredHeight - activity.dp(10)).toInt().coerceAtLeast(activity.dp(8))
@@ -696,7 +698,7 @@ class HomePanel(private val activity: MainActivity) {
         elevation = activity.dp(5).toFloat()
         addView(activity.icon(R.drawable.ic_cat_silhouette, Color.WHITE, 29),
             FrameLayout.LayoutParams(activity.dp(29), activity.dp(29), Gravity.CENTER))
-        contentDescription = "나비 부르기"
+        contentDescription = tr(R.string.call_nabi)
         setOnClickListener {
             if (!CatPresence.showInRoom) CatPresence.enterRoom() // overlay cat walks into the room
             floor.post { roomCat.callOver() }
