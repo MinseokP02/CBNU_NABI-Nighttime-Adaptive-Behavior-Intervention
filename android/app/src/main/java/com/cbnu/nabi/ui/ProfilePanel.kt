@@ -291,13 +291,7 @@ class ProfilePanel(private val activity: MainActivity, private val onLogout: () 
         return true
     }
 
-    private fun openPermissions() {
-        Modals.info(activity, R.drawable.ic_shield, "데이터 접근 권한",
-            "건강 데이터·신체활동·사용 정보 연동은 준비 중이에요. 지금 앱이 가진 권한은 시스템 설정에서 확인할 수 있어요.",
-            "앱 권한 설정 열기" to {
-                activity.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${activity.packageName}")))
-            })
-    }
+    private fun openPermissions() = DataAccessDialog.show(activity)
 
     // ---------------- 수면 목표 수정 modal (FR-07-02/03) ----------------
     private fun openGoalModal() {

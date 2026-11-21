@@ -41,6 +41,9 @@ Swagger UI: <http://127.0.0.1:8000/docs>
 | API-06 | GET | `/sleep-records` | `start_date`, `end_date`, `limit` |
 | API-07 | POST | `/behavior-records` | 201 |
 | API-08 | GET | `/behavior-records` | `start_date`, `end_date`, `limit` |
+| 산책 | POST | `/walks` | 201. 끝난 산책 (시작·종료 시각, 거리, 추천 경로·실제 경로 `[lat, lon]` 최대 2000점) |
+| 산책 | GET | `/walks` | 목록(좌표 제외) + 합계. `start_date`, `end_date`(사용자 시간대 기준), `limit` |
+| 산책 | GET / DELETE | `/walks/{walk_id}` | 상세(좌표 포함) / 삭제. 본인 것만 (다른 사람 것은 404) |
 | API-09 | GET | `/analysis/baseline` | `ready` / `collecting` |
 | API-10 | GET | `/analysis/risk?window=3\|7` | 그 외 값은 422 |
 | API-11 | POST | `/analysis/refresh` | baseline + 3·7일 위험도 저장 |

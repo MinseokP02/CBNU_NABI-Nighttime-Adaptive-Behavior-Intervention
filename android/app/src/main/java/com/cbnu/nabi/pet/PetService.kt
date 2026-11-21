@@ -32,6 +32,11 @@ import com.cbnu.nabi.data.CatState
 import com.cbnu.nabi.data.Prefs
 import com.cbnu.nabi.ui.ChatActivity
 import com.cbnu.nabi.ui.MainActivity
+import com.cbnu.nabi.ui.MissionProposal
+import com.cbnu.nabi.ui.MissionProposalStore
+import com.cbnu.nabi.ui.MissionProposals
+import com.cbnu.nabi.ui.ProposalKind
+import com.cbnu.nabi.ui.ProposalResponse
 import java.util.concurrent.Executors
 
 /** What the cat needs from whoever hosts its windows. */
@@ -60,6 +65,11 @@ class PetService : Service(), PetHost {
         const val ACTION_STOP = "com.cbnu.nabi.STOP"
         const val ACTION_CAT = "com.cbnu.nabi.CAT"
         const val ACTION_SYNC = "com.cbnu.nabi.SYNC"
+        const val ACTION_SUGGEST_WALK = "com.cbnu.nabi.SUGGEST_WALK"
+        /** Server recommendation check for a walk: at most this often, only in [WALK_HOURS], once a day. */
+        private const val WALK_CHECK_MS = 30 * 60 * 1000L
+        private val WALK_HOURS = 10..19
+        private const val WALK_CODE = "SH_DAYTIME_ACTIVITY"
         const val EXTRA_ACTION = "cat_action"
         const val EXTRA_LINE = "line"
         private const val CHANNEL = "nabi_pet"
@@ -83,6 +93,15 @@ class PetService : Service(), PetHost {
                     .putExtra(EXTRA_ACTION, action.name)
                     .putExtra(EXTRA_LINE, line)
             )
+        }
+
+        /**
+         * 나비 suggests a walk OVER OTHER APPS (card next to the cat). Accepting opens NABI → 산책 page.
+         * No-op while the overlay cat is hidden.
+         */
+        fun suggestWalk(context: Context) {
+            if (!isRunning) return
+            context.startService(Intent(context, PetService::class.java).setAction(ACTION_SUGGEST_WALK))
         }
 
         /** Re-read /cat/state now (e.g. after login or finishing a mission). */
@@ -133,8 +152,56 @@ class PetService : Service(), PetHost {
     private val poll = object : Runnable {
         override fun run() {
             syncCatState()
+            maybeSuggestWalkFromServer()
             main.postDelayed(this, POLL_MS)
         }
+    }
+
+    // ---- walk suggestion (over other apps) ----
+    private var walkCard: WalkSuggestionCard? = null
+    private var lastWalkCheck = 0L
+    private val walkPrefs by lazy { getSharedPreferences("nabi_walk_suggest", Context.MODE_PRIVATE) }
+
+    private fun suggestedToday() = walkPrefs.getString("day", null) == java.time.LocalDate.now().toString()
+
+    /** Real-time trigger: the server's current recommendation is the daytime-activity one (→ 산책). */
+    private fun maybeSuggestWalkFromServer() {
+        val now = System.currentTimeMillis()
+        if (!prefs.loggedIn || suggestedToday() || now - lastWalkCheck < WALK_CHECK_MS) return
+        if (java.time.LocalTime.now().hour !in WALK_HOURS || hiddenInApp) return
+        lastWalkCheck = now
+        io.execute {
+            val rec = runCatching { api.recommendation(includeExplanation = false) }.getOrNull() ?: return@execute
+            if (rec.code != WALK_CODE) return@execute
+            main.post { showWalkSuggestion(MissionProposals.fromRecommendation(rec)) }
+        }
+    }
+
+    private fun localWalkProposal() = MissionProposal(
+        id = "overlay-walk-${java.time.LocalDate.now()}", kind = ProposalKind.WALK,
+        title = "잠깐 같이 산책할래냥?",
+        description = "한동안 화면만 봤어요.\n15분만 걸어도 밤에 잠이 잘 와요. 나비가 길을 골라 줄게요!",
+    )
+
+    private fun showWalkSuggestion(p: MissionProposal = localWalkProposal()) {
+        if (walkCard?.isShowing == true || !prefs.loggedIn) return
+        walkPrefs.edit().putString("day", java.time.LocalDate.now().toString()).apply()
+        cat?.applyAction(CatAction.WALK, "산책 갈래냥?")
+        val store = MissionProposalStore(this, prefs.email)
+        walkCard = WalkSuggestionCard(this, wm, p.title, p.description,
+            onAccept = {
+                store.record(p, ProposalResponse.ACCEPTED) // 나의 미션: 진행 중
+                cat?.applyAction(CatAction.HAPPY, "좋아, 가자냥!")
+                // Into the NABI app first, which then opens the 산책 page (back returns to the app).
+                startActivity(Intent(this, MainActivity::class.java)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                    .putExtra(MainActivity.EXTRA_OPEN_WALK, p.id))
+            },
+            onLater = {
+                store.record(p, ProposalResponse.LATER)
+                cat?.applyAction(CatAction.SIT, "알았어, 나중에 가자냥")
+            },
+        ).also { it.show() }
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -168,6 +235,7 @@ class PetService : Service(), PetHost {
                 cat?.applyAction(a, intent.getStringExtra(EXTRA_LINE))
             }
             ACTION_SYNC -> { lastServerAction = null; syncCatState() }
+            ACTION_SUGGEST_WALK -> showWalkSuggestion()
             else -> cat?.callOver()
         }
         return START_STICKY
@@ -183,6 +251,7 @@ class PetService : Service(), PetHost {
         if (instance === this) instance = null
         main.removeCallbacksAndMessages(null)
         io.shutdownNow()
+        walkCard?.dismiss()
         cat?.let { runCatching { wm.removeView(it) } }
         touch?.let { runCatching { wm.removeView(it) } }
         cat = null; touch = null

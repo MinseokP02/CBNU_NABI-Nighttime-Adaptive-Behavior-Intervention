@@ -19,6 +19,9 @@ import android.widget.NumberPicker
 import android.widget.TextView
 import com.cbnu.nabi.R
 import com.cbnu.nabi.data.ApiException
+import com.cbnu.nabi.data.HealthConnectSource
+import com.cbnu.nabi.data.HealthNight
+import com.cbnu.nabi.data.ScreenUsageSource
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
@@ -29,7 +32,12 @@ import java.time.ZonedDateTime
  *
  * Saved to the server: bedtime, wake time, sleep onset latency, minutes awake at night, satisfaction
  * (POST /sleep-records), and the previous day's habits (POST /behavior-records): caffeine after
- * 오후 2시, nap minutes, exercise minutes. Kept on this device only (no server field): awakening count.
+ * 오후 2시, nap minutes, exercise minutes, and screen minutes before sleep. Kept on this device only
+ * (no server field): awakening count.
+ *
+ * Auto-collected (FR-03-04): a new entry is pre-filled from Health Connect (sleep session → times,
+ * latency, WASO, awakenings; exercise sessions → the previous day's exercise minutes). Screen time
+ * before sleep comes from UsageStats. The user can still change every pre-filled value.
  */
 class SleepRecordSheet(
     private val activity: MainActivity,
@@ -63,6 +71,11 @@ class SleepRecordSheet(
     private lateinit var latencyText: TextView
     private lateinit var napMinInput: EditText
     private lateinit var exerciseMinInput: EditText
+    private lateinit var sourceBadge: TextView
+    private lateinit var sourceHelp: TextView
+    private lateinit var screenText: TextView
+    private var exerciseRow: View? = null
+    private var refreshExercise: () -> Unit = {}
     private val errorText = activity.label("", 11f, Color.parseColor("#B45656"), bold = true)
     private val saveText = activity.label("기록 저장", 15f, Color.WHITE, bold = true)
     private val saveBtn = LinearLayout(activity)
@@ -74,6 +87,74 @@ class SleepRecordSheet(
         sheet.body.add(habitsCard())
         sheet.body.add(errorText.apply { visibility = View.GONE })
         sheet.setFooter(buildSaveButton())
+        loadDeviceData()
+    }
+
+    // ---------------- auto-collected data (Health Connect / UsageStats) ----------------
+    private fun loadDeviceData() {
+        activity.bg({
+            val night = HealthConnectSource.readNight(activity, date)
+            val exercise = HealthConnectSource.exerciseMinutes(activity, date.minusDays(1))
+            night to exercise
+        }) { r ->
+            val (night, exerciseMin) = r.getOrNull() ?: (null to null)
+            if (night != null) applyNight(night)
+            // Only fill exercise when Health Connect actually has sessions (0 may just mean "not tracked").
+            if (existing == null && exerciseMin != null && exerciseMin > 0) {
+                exercise = true
+                exerciseMinInput.setText(exerciseMin.toString())
+                exerciseRow?.visibility = View.VISIBLE
+                refreshExercise()
+            }
+            updateScreenTime()
+        }
+    }
+
+    private fun applyNight(n: HealthNight) {
+        sourceBadge.text = "Health Connect"
+        sourceBadge.setTextColor(Color.WHITE)
+        sourceBadge.background = activity.rounded(Color.parseColor("#7FB394"), 10)
+        if (existing != null) {
+            sourceHelp.text = "Health Connect에 이 날 기록이 있어요. 저장된 일지 값을 보여주고 있어요."
+            return
+        }
+        bedtime = n.bedtime.toLocalTime().withSecond(0).withNano(0)
+        wakeTime = n.wakeTime.toLocalTime().withSecond(0).withNano(0)
+        n.latencyMin?.let { setLatency(it) }
+        n.wakeAfterSleepOnsetMin?.let { awakeMinInput.setText(it.toString()) }
+        n.awakenings?.let { awakeningsInput.setText(it.toString()) }
+        updateTimeButtons()
+        sourceHelp.text = if (n.latencyMin != null) "Health Connect 수면 기록으로 채웠어요. 실제와 다르면 직접 고칠 수 있어요."
+        else "Health Connect에서 취침·기상 시각을 가져왔어요. 잠들기까지 걸린 시간과 밤중 각성은 직접 입력해 주세요."
+    }
+
+    /** Sleep onset = bedtime + latency, on the night before [date]. */
+    private fun sleepOnset(): ZonedDateTime? {
+        val bed = bedtime ?: return null
+        val wake = wakeTime ?: LocalTime.of(7, 0)
+        val zone = ZoneId.systemDefault()
+        var bedAt = ZonedDateTime.of(date, bed, zone)
+        if (!bedAt.isBefore(ZonedDateTime.of(date, wake, zone))) bedAt = bedAt.minusDays(1)
+        return bedAt.plusMinutes(latency.toLong())
+    }
+
+    /** "잠들기 전 2시간 화면 사용" row: recomputed when bedtime or latency changes. */
+    private fun updateScreenTime() {
+        if (!::screenText.isInitialized) return
+        val onset = sleepOnset()
+        activity.bg({
+            val access = ScreenUsageSource.hasAccess(activity)
+            access to onset?.let { ScreenUsageSource.minutesBefore(activity, it) }
+        }) { r ->
+            val (access, min) = r.getOrNull() ?: (false to null)
+            screenText.text = when {
+                !access -> "권한 필요 ›"
+                onset == null -> "취침 시각 선택 후 계산"
+                min == null -> "기록 없음"
+                else -> "${min}분 (자동)"
+            }
+            screenText.setOnClickListener(if (!access) View.OnClickListener { activity.openPermissionSettings() } else null)
+        }
     }
 
     fun show() = sheet.show()
@@ -117,13 +198,15 @@ class SleepRecordSheet(
         val c = card()
         val title = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         title.addView(cardTitle("자동 수집된 수면 정보"), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        // FR-03-04: no collected estimate is available yet, so the fields start empty.
-        title.addView(activity.label("데이터 없음", 10f, Palette.muted, bold = true).apply {
+        // FR-03-04: "데이터 없음" until a Health Connect sleep session is found ([applyNight]).
+        sourceBadge = activity.label("데이터 없음", 10f, Palette.muted, bold = true).apply {
             setPadding(activity.dp(8), activity.dp(4), activity.dp(8), activity.dp(4))
             background = activity.rounded(Color.parseColor("#F1E6DD"), 10)
-        })
+        }
+        title.addView(sourceBadge)
         c.addView(title)
-        c.addView(help("수집값이 없거나 정확하지 않다면 직접 입력할 수 있어요."))
+        sourceHelp = help("수집값이 없거나 정확하지 않다면 직접 입력할 수 있어요.")
+        c.addView(sourceHelp)
 
         bedBtn = timeButton { pickTime(true) }
         wakeBtn = timeButton { pickTime(false) }
@@ -207,6 +290,7 @@ class SleepRecordSheet(
     private fun setLatency(v: Int) {
         latency = v.coerceIn(0, 720)
         latencyText.text = "${latency}분"
+        updateScreenTime()
     }
 
     private fun satisfactionCard(): View {
@@ -238,18 +322,22 @@ class SleepRecordSheet(
         c.addView(row(null, "전날 낮잠 여부", yesNo({ nap }) { nap = it; napMinRow.visibility = if (it) View.VISIBLE else View.GONE }, 0))
         c.addView(napMinRow.apply { visibility = if (nap == true) View.VISIBLE else View.GONE })
         c.addView(row(null, "오후 2시 이후 카페인 섭취", yesNo({ caffeine }) { caffeine = it }, 0))
-        c.addView(row(null, "전날 운동 여부", yesNo({ exercise }) { exercise = it; exerciseMinRow.visibility = if (it) View.VISIBLE else View.GONE }, 0))
+        c.addView(row(null, "전날 운동 여부", yesNo({ exercise }, { refreshExercise = it }) { exercise = it; exerciseMinRow.visibility = if (it) View.VISIBLE else View.GONE }, 0))
         c.addView(exerciseMinRow.apply { visibility = if (exercise == true) View.VISIBLE else View.GONE })
+        exerciseRow = exerciseMinRow
+        screenText = activity.label("확인 중…", 11f, Palette.lavenderDeep, bold = true).apply { gravity = Gravity.CENTER_VERTICAL or Gravity.END }
+        c.addView(row(null, "잠들기 전 2시간 화면 사용", screenText, 0))
         return c
     }
 
-    private fun yesNo(get: () -> Boolean?, set: (Boolean) -> Unit): View {
+    private fun yesNo(get: () -> Boolean?, exposeRefresh: ((() -> Unit) -> Unit)? = null, set: (Boolean) -> Unit): View {
         val box = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL }
         val yes = chip("예", filled = false)
         val no = chip("아니요", filled = false)
         fun refresh() { styleChip(yes, get() == true, false); styleChip(no, get() == false, false) }
         yes.setOnClickListener { set(true); refresh() }
         no.setOnClickListener { set(false); refresh() }
+        exposeRefresh?.invoke(::refresh)
         box.addView(yes, LinearLayout.LayoutParams(activity.dp(56), ViewGroup.LayoutParams.MATCH_PARENT))
         box.addView(no, LinearLayout.LayoutParams(activity.dp(56), ViewGroup.LayoutParams.MATCH_PARENT).apply { leftMargin = activity.dp(5) })
         refresh()
@@ -281,6 +369,7 @@ class SleepRecordSheet(
         Modals.timePicker(activity, if (isBed) "취침 시각 수정" else "기상 시각 수정", initial, listOf(sheet.decorView)) { t ->
             if (isBed) bedtime = t else wakeTime = t
             updateTimeButtons()
+            updateScreenTime()
         }
     }
 
@@ -342,10 +431,13 @@ class SleepRecordSheet(
             )
             // The habits are for the day before the wake-up morning. A failure here must not undo the
             // saved sleep record, so it is reported separately.
+            // Recomputed with the final bedtime/latency (UsageStats; null without access → not sent).
+            val screen = ScreenUsageSource.minutesBefore(activity, bedAt.plusMinutes(latency.toLong()))
             runCatching {
                 activity.api.createBehaviorRecord(
                     date = date.minusDays(1),
                     caffeineAfterCutoff = c,
+                    screenBeforeBedMin = screen,
                     napDurationMin = napMin,
                     exerciseDurationMin = exerciseMin,
                 )

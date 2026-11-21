@@ -117,6 +117,39 @@ class ApiClient(private val prefs: Prefs) {
     fun behaviorRecords(start: LocalDate, end: LocalDate, limit: Int = 100): List<BehaviorRecordItem> =
         BehaviorRecordItem.list(JSONObject(request("GET", "/behavior-records?start_date=$start&end_date=$end&limit=$limit")))
 
+    // ---------- walks (산책 내역) ----------
+    /** POST /walks body. [route] / [path] are [lat, lon] pairs (thin them first; the server takes at most 2000 points). */
+    fun walkBody(
+        startedAt: ZonedDateTime,
+        endedAt: ZonedDateTime,
+        distanceM: Double,
+        targetMinutes: Int?,
+        plannedDistanceM: Double?,
+        route: List<DoubleArray>,
+        path: List<DoubleArray>,
+        proposalId: String?,
+    ): JSONObject {
+        val iso = DateTimeFormatter.ISO_OFFSET_DATE_TIME
+        fun pts(list: List<DoubleArray>) = JSONArray().apply {
+            list.forEach { put(JSONArray().put(Math.round(it[0] * 1e6) / 1e6).put(Math.round(it[1] * 1e6) / 1e6)) }
+        }
+        val body = JSONObject()
+            .put("started_at", startedAt.format(iso))
+            .put("ended_at", endedAt.format(iso))
+            .put("distance_m", Math.round(distanceM * 10) / 10.0)
+            .put("planned_route", pts(route))
+            .put("path", pts(path))
+        targetMinutes?.let { body.put("target_minutes", it) }
+        plannedDistanceM?.let { body.put("planned_distance_m", Math.round(it * 10) / 10.0) }
+        proposalId?.let { body.put("proposal_id", it.take(64)) }
+        return body
+    }
+
+    /** Sends a body from [walkBody] (also used to re-send a walk kept on the device after a failure). */
+    fun createWalk(body: JSONObject): JSONObject = JSONObject(request("POST", "/walks", body))
+
+    fun walks(limit: Int = 20): WalkHistory = WalkHistory.from(JSONObject(request("GET", "/walks?limit=$limit")))
+
     // ---------- analysis / intervention (API-10, 12) ----------
     /** Per-day values for the trend charts ([days] 7..60). */
     fun trends(days: Int = 14): Trends = Trends.from(JSONObject(request("GET", "/analysis/trends?days=$days")))

@@ -13,7 +13,11 @@ import java.time.LocalTime
 import java.time.YearMonth
 
 /**
- * Left / 수면 일지 tab (FR-03-06, FR-04), following the Figma "나의 수면 일지" screen:
+ * Left / 수면 일지 tab (FR-03-06, FR-04). Two pages side by side in a [PagerView]:
+ * [전체 수면 분석] on the LEFT (trend charts, link to the detailed analysis sheet) and
+ * [나의 수면 일지] on the right (the default). Swipe or use the switch at the top.
+ *
+ * The diary page follows the Figma "나의 수면 일지" screen:
  * "살펴볼 점" (risk factors, FR-04-03 — added by user decision), month calendar with record dots,
  * last 7 days of sleep, and the selected day's record.
  *
@@ -25,6 +29,8 @@ class SleepDiaryPanel(private val activity: MainActivity) {
     private companion object {
         /** Mid lavender: soft but still clearly readable on the cream page. */
         val LINK: Int = Color.parseColor("#8467A8")
+        const val PAGE_ANALYSIS = 0
+        const val PAGE_DIARY = 1
     }
 
     private val store = SleepDiaryStore(activity, activity.prefs.email)
@@ -38,7 +44,13 @@ class SleepDiaryPanel(private val activity: MainActivity) {
     /** "전체 수면 분석": trend charts from GET /analysis/trends. */
     private val trends = SleepTrendSection(activity)
 
+    /** The whole tab: switch on top, pager below. */
     val view: View
+
+    private val pager = PagerView(activity)
+    private lateinit var analysisScroll: android.widget.ScrollView
+    private lateinit var diaryScroll: android.widget.ScrollView
+    private val switchItems = mutableListOf<android.widget.TextView>()
 
     /** "+ 기록하기" (the tutorial points at it). */
     val recordButton = LinearLayout(activity)
@@ -69,9 +81,84 @@ class SleepDiaryPanel(private val activity: MainActivity) {
         (sub.layoutParams as LinearLayout.LayoutParams).topMargin = activity.dp(2)
         page.add(calendarBox)
         page.add(detailBox)
-        page.add(trends.view)
-        view = activity.scrollPage(page)
+        diaryScroll = activity.scrollPage(page)
+        analysisScroll = activity.scrollPage(analysisPage())
+
+        pager.addView(analysisScroll)
+        pager.addView(diaryScroll)
+        pager.show(PAGE_DIARY, animate = false)
+        pager.onPageChanged = { styleSwitch() }
+        view = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(pageSwitch(), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+                .apply { setMargins(activity.dp(24), activity.dp(14), activity.dp(24), 0) })
+            addView(pager, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+        }
+        styleSwitch()
         refresh()
+    }
+
+    /** Phone: room at the bottom of each page so the floating tab bar never covers the end. */
+    fun setBottomInset(px: Int) {
+        for (s in listOf(analysisScroll, diaryScroll)) {
+            s.setPadding(0, 0, 0, px)
+            s.clipToPadding = false
+        }
+    }
+
+    /** Show [전체 수면 분석] (left page). */
+    fun showAnalysisPage() = pager.show(PAGE_ANALYSIS)
+
+    /** Show [나의 수면 일지] (right page). */
+    fun showDiaryPage(animate: Boolean = true) = pager.show(PAGE_DIARY, animate)
+
+    // ---------------- page switch + 전체 수면 분석 page ----------------
+    private fun pageSwitch(): View {
+        val box = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(activity.dp(4), activity.dp(4), activity.dp(4), activity.dp(4))
+            background = activity.cardBg(Color.parseColor("#F3ECF7"), 999, Color.parseColor("#E2D5EE"))
+        }
+        listOf("전체 수면 분석" to PAGE_ANALYSIS, "나의 수면 일지" to PAGE_DIARY).forEach { (text, index) ->
+            val item = activity.label(text, 12.5f, bold = true).apply {
+                gravity = Gravity.CENTER
+                contentDescription = "$text 보기"
+                setOnClickListener { pager.show(index) }
+            }
+            switchItems.add(item)
+            box.addView(item, LinearLayout.LayoutParams(0, activity.dp(34), 1f))
+        }
+        return box
+    }
+
+    private fun styleSwitch() = switchItems.forEachIndexed { i, v ->
+        val on = i == pager.page
+        v.background = if (on) activity.rounded(Color.parseColor("#9D7BC4"), 999) else null
+        v.setTextColor(if (on) Color.WHITE else Color.parseColor("#71568D"))
+    }
+
+    private fun analysisPage(): Column {
+        val page = activity.page()
+        page.add(activity.label("전체 수면 분석", 26f, title = true))
+        val sub = page.add(activity.label("기간별 수면 변화를 한눈에 살펴봐요", 12f, Palette.muted))
+        (sub.layoutParams as LinearLayout.LayoutParams).topMargin = activity.dp(6)
+        page.add(trends.view)
+        page.add(LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(activity.dp(14), activity.dp(12), activity.dp(14), activity.dp(12))
+            background = activity.cardBg(Palette.lavenderSoft, 16, Color.parseColor("#DCCDEB"))
+            addView(activity.icon(R.drawable.ic_chart, Color.parseColor("#71568D"), 16))
+            addView(activity.label("현재 상태 · 평소 대비 · 생활 습관 자세히 보기", 12.5f, Color.parseColor("#71568D"), bold = true),
+                LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { leftMargin = activity.dp(6) })
+            contentDescription = "나의 수면 분석 자세히 보기"
+            setOnClickListener { activity.openAnalysis() }
+        })
+        page.add(activity.label("나의 수면 일지로 돌아가기 ›", 11.5f, LINK, bold = true).apply {
+            gravity = Gravity.CENTER
+            setOnClickListener { showDiaryPage() }
+        })
+        return page
     }
 
     /** Redraw from what is cached now (after saving a record, on resume). [HomePanel.refresh] syncs the server copy. */
@@ -87,24 +174,25 @@ class SleepDiaryPanel(private val activity: MainActivity) {
         month = YearMonth.now()
         selected = LocalDate.now()
         refresh()
-        (view as? android.widget.ScrollView)?.scrollTo(0, 0)
+        showDiaryPage(animate = false)
+        diaryScroll.scrollTo(0, 0)
     }
 
     /**
-     * "수면 분석 보기 ›" → the 나의 수면 분석 sheet. A plain text link with a small chart icon
-     * (no background or border); the padding gives it a comfortable touch area.
+     * "‹ 전체 수면 분석" → slides to the analysis page on the left. A plain text link with a
+     * small chart icon (no background or border); the padding gives it a comfortable touch area.
      */
     private fun analysisLink() = LinearLayout(activity).apply {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
         setPadding(activity.dp(12), activity.dp(10), activity.dp(2), activity.dp(10))
+        addView(activity.icon(R.drawable.ic_chevron_left, LINK, 14),
+            LinearLayout.LayoutParams(activity.dp(14), activity.dp(14)).apply { rightMargin = activity.dp(2) })
         addView(activity.icon(R.drawable.ic_chart, LINK, 13),
             LinearLayout.LayoutParams(activity.dp(13), activity.dp(13)).apply { rightMargin = activity.dp(5) })
-        addView(activity.label("수면 분석 보기", 12f, LINK, bold = true))
-        addView(activity.icon(R.drawable.ic_chevron_right, LINK, 14),
-            LinearLayout.LayoutParams(activity.dp(14), activity.dp(14)).apply { leftMargin = activity.dp(2) })
-        contentDescription = "수면 분석 보기"
-        setOnClickListener { activity.openAnalysis() }
+        addView(activity.label("전체 수면 분석", 12f, LINK, bold = true))
+        contentDescription = "전체 수면 분석 보기"
+        setOnClickListener { showAnalysisPage() }
     }
 
     // ---------------- shared bits ----------------
@@ -217,7 +305,7 @@ class SleepDiaryPanel(private val activity: MainActivity) {
 
     /** After picking a date, scroll so the selected day's card (empty + 기록하기, or detail + 수정) is visible. */
     private fun revealDetail() {
-        val scroll = view as? android.widget.ScrollView ?: return
+        val scroll = diaryScroll
         detailBox.post {
             val bottom = detailBox.bottom + scroll.paddingBottom
             val target = (bottom - scroll.height).coerceAtLeast(0)

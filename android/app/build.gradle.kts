@@ -33,3 +33,11 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
 }
+
+dependencies {
+    // Health Connect: sleep sessions (auto-filled diary) and exercise sessions (previous day's habits).
+    implementation("androidx.health.connect:connect-client:1.1.0-alpha07")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+    // 산책 page: OpenStreetMap tiles (no API key needed).
+    implementation("org.osmdroid:osmdroid-android:6.1.18")
+}

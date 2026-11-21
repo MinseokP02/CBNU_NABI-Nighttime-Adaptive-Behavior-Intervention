@@ -64,6 +64,41 @@ HTTP(비암호화) 연결은 **debug 빌드에서만** 허용됩니다 (`app/src
 - Android 12+에서 "알람 및 리마인더"(정확한 알람) 권한이 없으면 알림 설정 화면에 권한 카드가 뜨고, 그동안은 몇 분 늦을 수 있는 일반 알람으로 예약합니다.
 - 테스트: 수면 목표를 1~2분 뒤로 저장 → `adb shell dumpsys alarm | grep -A3 com.cbnu.nabi`로 예약 확인.
 
+## 기기 데이터 연동 (Health Connect · 사용 정보)
+
+마이페이지 › 데이터 접근 권한에서 연결합니다 (`data/DeviceData.kt`, `ui/DataAccessDialog.kt`).
+
+| 출처 | 권한 | 쓰는 곳 |
+|---|---|---|
+| Health Connect 수면 세션 | `health.READ_SLEEP` | 수면 기록 시트를 자동으로 채움: 취침(세션 시작), 기상(마지막 수면 단계 끝), 입면 잠복기(시작→첫 수면 단계), 밤중 각성(첫·마지막 수면 사이 깨어 있던 단계의 횟수·분) |
+| Health Connect 운동 세션 | `health.READ_EXERCISE` | 전날 운동 시간 (0분이면 채우지 않음) |
+| UsageStats | `PACKAGE_USAGE_STATS` (시스템 설정에서 허용) | 잠들기 전 2시간 화면 켜짐 시간 → `screen_before_bed_min` (Android 9+) |
+
+- 자동으로 채운 값은 모두 사용자가 고칠 수 있고, 권한이 없으면 예전처럼 직접 입력합니다.
+- 에뮬레이터 테스트 (debug 빌드 전용 시더, 어젯밤 23:40~07:05 수면과 전날 40분 걷기를 기록):
+  ```powershell
+  adb shell pm grant com.cbnu.nabi android.permission.health.WRITE_SLEEP
+  adb shell pm grant com.cbnu.nabi android.permission.health.WRITE_EXERCISE
+  adb shell am broadcast -n com.cbnu.nabi/.debug.HealthSeedReceiver
+  ```
+
+## 산책 (나비의 산책 제안 → 산책 페이지)
+
+| 단계 | 동작 |
+|---|---|
+| 제안 | 앱 밖에서 나비(오버레이)가 "잠깐 같이 산책할래냥?" 카드를 띄움 (`pet/WalkSuggestionCard.kt`). 10~20시에 30분마다 `GET /interventions/recommendations`를 보고 `SH_DAYTIME_ACTIVITY`(낮 활동)이면 제안, 하루 한 번 |
+| 수락 | "좋아, 같이 걷자" → 나의 미션에 진행 중으로 추가 → NABI 앱 → 산책 페이지 (`walk/WalkActivity.kt`). 앱 안의 나비의 제안(산책)을 수락해도 같은 페이지로 감 |
+| 경로 추천 | 현재 위치에서 출발해 돌아오는 순환 경로. 산책 시간 15/30/45/60분, "다른 경로", 지도를 눌러 지나갈 곳 추가(최대 3곳, 표시를 누르면 삭제), "초기화" |
+| 기록 | 산책 시작 → 위치 포그라운드 서비스(`WalkTrackingService`)가 화면이 꺼져도 경로 기록 → 산책 끝내기 → `POST /walks` |
+| 내역 | `GET /walks` 목록과 누적 거리·시간. 저장 실패 시 기기에 보관했다가 다음에 자동 전송 (`PendingWalks`) |
+
+- 지도: OpenStreetMap 타일(osmdroid, API 키 없음). 경로: 공개 OSRM 도보 라우터 `routing.openstreetmap.de` — **출발점과 경유지 좌표가 이 외부 서버로 전송됨**. 연결 실패 시 직선 경로로 표시. 정식 서비스 전에는 자체 라우터나 계약된 지도 API로 바꾸는 것을 권장.
+- 테스트 (debug 빌드): 나비 화면 상주를 켠 뒤
+  ```powershell
+  adb emu geo fix 127.4563 36.6285          # 에뮬레이터 위치 (경도 위도)
+  adb shell am broadcast -n com.cbnu.nabi/.debug.SuggestWalkReceiver
+  ```
+
 ## 구조
 
 ```text

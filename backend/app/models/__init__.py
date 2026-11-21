@@ -11,9 +11,10 @@ from app.models.reward_transaction import RewardTransaction
 from app.models.risk_analysis import RiskAnalysis
 from app.models.sleep_record import SleepRecord
 from app.models.user import User
+from app.models.walk_record import WalkRecord
 
 __all__ = [
     "Base", "Baseline", "BehaviorRecord", "CatProfile", "ChatMessage", "Conversation", "Intervention", "Mission",
     "MissionAssignment", "MissionResult", "RewardTransaction", "RiskAnalysis",
-    "SleepRecord", "User",
+    "SleepRecord", "User", "WalkRecord",
 ]

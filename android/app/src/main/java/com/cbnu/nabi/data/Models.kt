@@ -361,3 +361,33 @@ object Labels {
         else -> s
     }
 }
+
+/** One finished walk (GET /walks item; no coordinates in the list). */
+data class WalkItem(
+    val walkId: Int,
+    val startedAt: OffsetDateTime,
+    val endedAt: OffsetDateTime,
+    val durationSec: Int,
+    val distanceM: Double,
+    val targetMinutes: Int?,
+)
+
+/** GET /walks: newest first, plus totals for the same filter. */
+data class WalkHistory(val items: List<WalkItem>, val walks: Int, val totalDistanceM: Double, val totalDurationSec: Int) {
+    companion object {
+        fun from(j: JSONObject): WalkHistory {
+            val items = (j.optJSONArray("items") ?: JSONArray()).objects().map {
+                WalkItem(
+                    walkId = it.optInt("walk_id"),
+                    startedAt = OffsetDateTime.parse(it.getString("started_at")),
+                    endedAt = OffsetDateTime.parse(it.getString("ended_at")),
+                    durationSec = it.optInt("duration_sec"),
+                    distanceM = it.optDouble("distance_m"),
+                    targetMinutes = if (it.isNull("target_minutes")) null else it.optInt("target_minutes"),
+                )
+            }
+            val s = j.optJSONObject("summary") ?: JSONObject()
+            return WalkHistory(items, s.optInt("walks", items.size), s.optDouble("total_distance_m", 0.0), s.optInt("total_duration_sec"))
+        }
+    }
+}
