@@ -1,5 +1,8 @@
 package com.cbnu.nabi.alarm
 
+
+import com.cbnu.nabi.R
+import com.cbnu.nabi.tr
 import android.app.AlarmManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -118,13 +121,13 @@ object NabiAlarms {
     fun ensureChannels(context: Context) {
         val nm = context.getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(
-            NotificationChannel(CHANNEL_REMINDERS, "수면 및 활동 안내", NotificationManager.IMPORTANCE_DEFAULT).apply {
-                description = "취침 준비, 수면 일지, 활동·미션 안내"
+            NotificationChannel(CHANNEL_REMINDERS, tr(R.string.sleep_activity_reminders), NotificationManager.IMPORTANCE_DEFAULT).apply {
+                description = tr(R.string.bedtime_prep_sleep_diary_activity_and)
             }
         )
         nm.createNotificationChannel(
-            NotificationChannel(CHANNEL_WAKE, "기상 알람", NotificationManager.IMPORTANCE_HIGH).apply {
-                description = "목표 기상 시각에 울리는 알람"
+            NotificationChannel(CHANNEL_WAKE, tr(R.string.wake_up_alarm), NotificationManager.IMPORTANCE_HIGH).apply {
+                description = tr(R.string.alarm_at_your_target_wake_up)
                 // The alarm screen plays the sound itself, so the notification stays silent.
                 setSound(null, null as AudioAttributes?)
                 enableVibration(false)

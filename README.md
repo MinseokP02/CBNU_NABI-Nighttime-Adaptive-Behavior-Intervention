@@ -6,6 +6,17 @@ NABI (Nighttime Adaptive Behavioral Intervention)의 FastAPI/PostgreSQL 백엔�
 - LLM 서버: [`llm-server/README.md`](llm-server/README.md)
 - Android 앱 (Kotlin, 화면 위 고양이): [`android/README.md`](android/README.md)
 
+## 이 PC에서 서버 실행 (Windows)
+
+1. [Docker Desktop](https://www.docker.com/products/docker-desktop/)을 설치하고 실행합니다 (처음 설치 시 WSL 2 설치·재부팅이 필요할 수 있음).
+2. 저장소 루트에서:
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File scripts\start-server.ps1
+   ```
+   `.env`가 없으면 무작위 비밀값으로 만들고, DB·LLM 서버(mock)·백엔드를 띄운 뒤 마이그레이션과 중재 카탈로그 시드까지 실행합니다.
+3. 에뮬레이터 앱은 `http://10.0.2.2:8000`으로 자동 연결됩니다 (앱에서 서버 주소를 입력하지 않음 — `android/app/build.gradle.kts`의 `DEFAULT_BASE_URL`).
+4. 중지: `docker compose down` (데이터는 볼륨에 남음)
+
 ## 구조
 
 ```text
@@ -31,6 +42,7 @@ NABI (Nighttime Adaptive Behavioral Intervention)의 FastAPI/PostgreSQL 백엔�
 │   ├── app/   (main, inference, prompt_builder, safety, response_validator, schemas, ...)
 │   └── tests/
 └── scripts/
+    ├── start-server.ps1   (Windows: Docker Desktop으로 전체 서버 실행)
     ├── init.sh
     ├── backup-db.sh
     └── restore-db.sh

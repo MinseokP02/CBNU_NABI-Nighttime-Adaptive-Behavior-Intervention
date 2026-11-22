@@ -1,5 +1,7 @@
 package com.cbnu.nabi.alarm
 
+
+import com.cbnu.nabi.tr
 import android.app.Notification
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -34,12 +36,12 @@ class AlarmReceiver : BroadcastReceiver() {
 
         when (kind) {
             NabiAlarms.Kind.SLEEP_PREP -> notify(
-                ctx, kind, "곧 잘 시간이에요 🌙",
-                "목표 취침 시각까지 ${NabiAlarms.SLEEP_PREP_LEAD_MIN}분 남았어요. 화면을 어둡게 하고 잠들 준비를 해요.",
+                ctx, kind, tr(R.string.almost_bedtime),
+                tr(R.string.min_until_your_target_bedtime_dim, NabiAlarms.SLEEP_PREP_LEAD_MIN),
             )
             NabiAlarms.Kind.DIARY -> {
                 if (SleepDiaryStore(ctx, prefs.email).get(LocalDate.now()) == null) {
-                    notify(ctx, kind, "어젯밤 잠은 어땠나요?", "잊기 전에 수면 일지를 기록해 주세요. 나비가 기다리고 있어요.", MainActivity.TAB_SLEEP)
+                    notify(ctx, kind, tr(R.string.how_did_you_sleep_last_night), tr(R.string.log_your_sleep_diary_before_you), MainActivity.TAB_SLEEP)
                 }
             }
             NabiAlarms.Kind.MISSION -> {
@@ -49,11 +51,11 @@ class AlarmReceiver : BroadcastReceiver() {
                         val open = runCatching { ApiClient(prefs).activeMissions().filter { it.status == "ASSIGNED" } }
                         val missions = open.getOrNull()
                         when {
-                            missions == null -> notify(ctx, kind, "잠깐 몸을 움직여 볼까요?", "가벼운 스트레칭이나 산책은 밤잠에 도움이 돼요.")
+                            missions == null -> notify(ctx, kind, tr(R.string.shall_we_move_little), tr(R.string.light_stretch_or_walk_helps_you))
                             missions.isNotEmpty() -> notify(
-                                ctx, kind, "오늘의 미션이 남아 있어요",
-                                if (missions.size == 1) "‘${missions[0].title}’ 미션을 해 볼까요?"
-                                else "‘${missions[0].title}’ 외 ${missions.size - 1}개의 미션이 기다리고 있어요.",
+                                ctx, kind, tr(R.string.you_still_have_missions_today),
+                                if (missions.size == 1) tr(R.string.how_about_mission, missions[0].title)
+                                else tr(R.string.and_more_missions_are_waiting, missions[0].title, missions.size - 1),
                             )
                             // All missions done: nothing to nag about.
                         }
@@ -95,13 +97,13 @@ class AlarmReceiver : BroadcastReceiver() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         val n = Notification.Builder(ctx, NabiAlarms.CHANNEL_WAKE)
             .setSmallIcon(R.drawable.ic_cat)
-            .setContentTitle("일어날 시간이에요 ☀️")
-            .setContentText("나비가 깨우러 왔어요.")
+            .setContentTitle(tr(R.string.time_to_wake_up))
+            .setContentText(tr(R.string.nabi_came_to_wake_you_up))
             .setCategory(Notification.CATEGORY_ALARM)
             .setFullScreenIntent(full, true)
             .setContentIntent(full)
             .setOngoing(true)
-            .addAction(Notification.Action.Builder(Icon.createWithResource(ctx, R.drawable.ic_cat), "알람 끄기", dismiss).build())
+            .addAction(Notification.Action.Builder(Icon.createWithResource(ctx, R.drawable.ic_cat), tr(R.string.stop_alarm), dismiss).build())
             .build()
         runCatching { ctx.getSystemService(NotificationManager::class.java).notify(WakeAlarmActivity.NOTIFICATION_ID, n) }
         // With the overlay permission (used for the floating cat) the app may open the screen

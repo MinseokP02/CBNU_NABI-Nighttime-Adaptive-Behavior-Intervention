@@ -1,7 +1,12 @@
 package com.cbnu.nabi.data
 
+
+import com.cbnu.nabi.R
+import com.cbnu.nabi.tr
 import org.json.JSONArray
 import org.json.JSONObject
+import java.time.LocalDate
+import java.time.OffsetDateTime
 
 /*
  * Response models for the NABI backend (the .py files in backend/app/schemas).
@@ -33,7 +38,7 @@ data class CatState(
     companion object {
         fun from(j: JSONObject) = CatState(
             catId = j.optInt("cat_id"),
-            name = j.optString("name", "나비"),
+            name = j.optString("name", tr(R.string.nabi)),
             level = j.optInt("level", 1),
             exp = j.optInt("exp"),
             expToNextLevel = j.optInt("exp_to_next_level"),
@@ -67,7 +72,7 @@ data class UserState(
                 behaviorState = j.optString("behavior_state"),
                 riskLevel = j.optString("risk_level"),
                 riskFactors = (0 until factors.length()).map { factors.getString(it) },
-                catName = cat.optString("name", "나비"),
+                catName = cat.optString("name", tr(R.string.nabi)),
                 catLevel = cat.optInt("level", 1),
                 catExp = cat.optInt("exp"),
                 catAction = CatAction.parse(cat.str("cat_action")),
@@ -167,6 +172,161 @@ data class ChatMessage(
     }
 }
 
+/** API-06 GET /sleep-records item. Times keep the offset the app sent. */
+data class SleepRecordItem(
+    val sleepDate: LocalDate,
+    val bedtime: OffsetDateTime,
+    val finalAwakening: OffsetDateTime,
+    val sleepOnsetLatencyMin: Int,
+    val wakeAfterSleepOnsetMin: Int,
+    val totalSleepMin: Int,
+    val sleepEfficiency: Double,
+    val sleepQuality: Int?,
+) {
+    companion object {
+        fun list(j: JSONObject): List<SleepRecordItem> =
+            (j.optJSONArray("items") ?: JSONArray()).objects().map {
+                SleepRecordItem(
+                    sleepDate = LocalDate.parse(it.getString("sleep_date")),
+                    bedtime = OffsetDateTime.parse(it.getString("bedtime")),
+                    finalAwakening = OffsetDateTime.parse(it.getString("final_awakening")),
+                    sleepOnsetLatencyMin = it.optInt("sleep_onset_latency_min"),
+                    wakeAfterSleepOnsetMin = it.optInt("wake_after_sleep_onset_min"),
+                    totalSleepMin = it.optInt("total_sleep_time_min"),
+                    sleepEfficiency = it.optDouble("sleep_efficiency"),
+                    sleepQuality = if (it.isNull("sleep_quality")) null else it.optInt("sleep_quality"),
+                )
+            }
+    }
+}
+
+/** API-08 GET /behavior-records item. null = not recorded. */
+data class BehaviorRecordItem(
+    val recordDate: LocalDate,
+    val caffeineAfterCutoff: Boolean?,
+    val napDurationMin: Int?,
+    val exerciseDurationMin: Int?,
+) {
+    companion object {
+        fun list(j: JSONObject): List<BehaviorRecordItem> =
+            (j.optJSONArray("items") ?: JSONArray()).objects().map {
+                BehaviorRecordItem(
+                    recordDate = LocalDate.parse(it.getString("record_date")),
+                    caffeineAfterCutoff = if (it.isNull("caffeine_after_cutoff")) null else it.optBoolean("caffeine_after_cutoff"),
+                    napDurationMin = if (it.isNull("nap_duration_min")) null else it.optInt("nap_duration_min"),
+                    exerciseDurationMin = if (it.isNull("exercise_duration_min")) null else it.optInt("exercise_duration_min"),
+                )
+            }
+    }
+}
+
+/** One metric of API-10 (`metrics.<name>`). bedtime / wake_time are minutes from the anchor clock. */
+data class MetricScore(val recentValue: Double, val baselineMedian: Double?)
+
+/** API-10 GET /analysis/risk */
+data class RiskAnalysis(
+    val baselineStatus: String,
+    val riskLevel: String,
+    val riskFactors: List<String>,
+    val metrics: Map<String, MetricScore>,
+    /** Metric names the server flagged in factor_details (e.g. "sleep_efficiency"). */
+    val flaggedMetrics: Set<String>,
+) {
+    companion object {
+        fun from(j: JSONObject): RiskAnalysis {
+            val m = j.optJSONObject("metrics") ?: JSONObject()
+            val metrics = m.keys().asSequence().associateWith { k ->
+                val o = m.getJSONObject(k)
+                MetricScore(o.optDouble("recent_value"), if (o.isNull("baseline_median") || !o.has("baseline_median")) null else o.optDouble("baseline_median"))
+            }
+            val factors = j.optJSONArray("risk_factors") ?: JSONArray()
+            return RiskAnalysis(
+                baselineStatus = j.optString("baseline_status"),
+                riskLevel = j.optString("risk_level"),
+                riskFactors = (0 until factors.length()).map { factors.getString(it) },
+                metrics = metrics,
+                flaggedMetrics = (j.optJSONArray("factor_details") ?: JSONArray()).objects().map { it.optString("metric") }.toSet(),
+            )
+        }
+    }
+}
+
+/** API-12 GET /interventions/recommendations */
+data class Recommendation(
+    val interventionId: Int?,
+    val code: String,
+    val category: String,
+    val title: String,
+    val message: String,
+    val missionId: Int?,
+    /** LLM explanation when asked for (falls back to [message] on the server). */
+    val explanation: String?,
+) {
+    companion object {
+        fun from(j: JSONObject) = Recommendation(
+            interventionId = if (j.isNull("intervention_id")) null else j.optInt("intervention_id"),
+            code = j.optString("code"),
+            category = j.optString("category"),
+            title = j.optString("title"),
+            message = j.optString("message"),
+            missionId = if (j.isNull("mission_id")) null else j.optInt("mission_id"),
+            explanation = j.str("explanation")?.ifBlank { null },
+        )
+    }
+}
+
+/** GET /analysis/trends — one value per night/day plus the server's usual range. */
+data class Trends(
+    val days: Int,
+    val startDate: LocalDate?,
+    val endDate: LocalDate?,
+    val baselineReady: Boolean,
+    val metrics: List<TrendMetric>,
+) {
+    companion object {
+        private fun date(j: JSONObject, k: String) = j.str(k)?.let(LocalDate::parse)
+        fun from(j: JSONObject) = Trends(
+            days = j.optInt("days"),
+            startDate = date(j, "start_date"),
+            endDate = date(j, "end_date"),
+            baselineReady = j.optString("baseline_status") == "ready",
+            metrics = (j.optJSONArray("metrics") ?: JSONArray()).objects().map { m ->
+                val band = m.optJSONObject("band")
+                val latest = m.optJSONObject("latest")
+                TrendMetric(
+                    metric = m.optString("metric"),
+                    domain = m.optString("domain"),
+                    unit = m.optString("unit"),
+                    anchor = m.str("anchor"),
+                    points = (m.optJSONArray("points") ?: JSONArray()).objects()
+                        .map { TrendPoint(LocalDate.parse(it.getString("date")), it.getDouble("value")) },
+                    band = band?.let { TrendBand(it.getDouble("median"), it.getDouble("low"), it.getDouble("high")) },
+                    reference = if (m.isNull("reference") || !m.has("reference")) null else m.getDouble("reference"),
+                    latestStatus = latest?.optString("status"),
+                )
+            },
+        )
+    }
+}
+
+data class TrendPoint(val date: LocalDate, val value: Double)
+data class TrendBand(val median: Double, val low: Double, val high: Double)
+
+/**
+ * [unit]: clock (minutes from [anchor] "HH:MM"), minutes, ratio (0..1).
+ * [latestStatus]: normal / changed / improved / unknown, judged by the server.
+ */
+data class TrendMetric(
+    val metric: String,
+    val domain: String,
+    val unit: String,
+    val anchor: String?,
+    val points: List<TrendPoint>,
+    val band: TrendBand?,
+    val reference: Double?,
+    val latestStatus: String?,
+)
+
 /** API-19 GET /health */
 data class Health(val status: String, val database: String, val llm: String) {
     companion object {
@@ -177,30 +337,60 @@ data class Health(val status: String, val database: String, val llm: String) {
 /** Friendly Korean labels for state enums shown on the home screen. */
 object Labels {
     fun risk(s: String) = when (s) {
-        "HIGH" -> "높음"; "MODERATE" -> "보통"; "LOW" -> "낮음"; else -> "판단 전"
+        "HIGH" -> tr(R.string.high); "MODERATE" -> tr(R.string.moderate); "LOW" -> tr(R.string.low); else -> tr(R.string.not_assessed)
     }
 
     fun sleep(s: String) = when (s) {
-        "DETERIORATING" -> "나빠지는 중"; "IMPROVING" -> "좋아지는 중"; "STABLE" -> "안정"; else -> "기록 수집 중"
+        "DETERIORATING" -> tr(R.string.getting_worse); "IMPROVING" -> tr(R.string.improving); "STABLE" -> tr(R.string.stable); else -> tr(R.string.collecting_records)
     }
 
     fun behavior(s: String) = when (s) {
-        "AT_RISK" -> "주의 필요"; "CAUTION" -> "조금 주의"; "HEALTHY" -> "좋음"; else -> "기록 수집 중"
+        "AT_RISK" -> tr(R.string.needs_attention); "CAUTION" -> tr(R.string.some_caution); "HEALTHY" -> tr(R.string.good); else -> tr(R.string.collecting_records)
     }
 
     fun factor(s: String) = when (s) {
-        "PROLONGED_SLEEP_ONSET" -> "잠들기까지 오래 걸림"
-        "FREQUENT_NIGHT_AWAKENING" -> "밤중에 자주 깸"
-        "LOW_SLEEP_EFFICIENCY" -> "수면 효율 낮음"
-        "SHORT_SLEEP_DURATION" -> "수면 시간 짧음"
-        "IRREGULAR_BEDTIME" -> "취침 시각 불규칙"
-        "IRREGULAR_WAKE_TIME" -> "기상 시각 불규칙"
-        "POOR_SLEEP_QUALITY" -> "수면의 질 낮음"
-        "LATE_CAFFEINE" -> "늦은 카페인"
-        "EXCESSIVE_PRE_BED_SCREEN" -> "자기 전 화면 사용 많음"
-        "LONG_DAYTIME_NAP" -> "긴 낮잠"
-        "HIGH_STRESS" -> "스트레스 높음"
-        "LOW_PHYSICAL_ACTIVITY" -> "활동량 적음"
+        "PROLONGED_SLEEP_ONSET" -> tr(R.string.long_time_to_fall_asleep)
+        "FREQUENT_NIGHT_AWAKENING" -> tr(R.string.frequent_night_waking)
+        "LOW_SLEEP_EFFICIENCY" -> tr(R.string.low_sleep_efficiency)
+        "SHORT_SLEEP_DURATION" -> tr(R.string.short_sleep)
+        "IRREGULAR_BEDTIME" -> tr(R.string.irregular_bedtime)
+        "IRREGULAR_WAKE_TIME" -> tr(R.string.irregular_wake_time)
+        "POOR_SLEEP_QUALITY" -> tr(R.string.poor_sleep_quality)
+        "LATE_CAFFEINE" -> tr(R.string.late_caffeine)
+        "EXCESSIVE_PRE_BED_SCREEN" -> tr(R.string.lots_of_screen_time_before_bed)
+        "LONG_DAYTIME_NAP" -> tr(R.string.long_naps)
+        "HIGH_STRESS" -> tr(R.string.high_stress)
+        "LOW_PHYSICAL_ACTIVITY" -> tr(R.string.low_activity)
         else -> s
+    }
+}
+
+/** One finished walk (GET /walks item; no coordinates in the list). */
+data class WalkItem(
+    val walkId: Int,
+    val startedAt: OffsetDateTime,
+    val endedAt: OffsetDateTime,
+    val durationSec: Int,
+    val distanceM: Double,
+    val targetMinutes: Int?,
+)
+
+/** GET /walks: newest first, plus totals for the same filter. */
+data class WalkHistory(val items: List<WalkItem>, val walks: Int, val totalDistanceM: Double, val totalDurationSec: Int) {
+    companion object {
+        fun from(j: JSONObject): WalkHistory {
+            val items = (j.optJSONArray("items") ?: JSONArray()).objects().map {
+                WalkItem(
+                    walkId = it.optInt("walk_id"),
+                    startedAt = OffsetDateTime.parse(it.getString("started_at")),
+                    endedAt = OffsetDateTime.parse(it.getString("ended_at")),
+                    durationSec = it.optInt("duration_sec"),
+                    distanceM = it.optDouble("distance_m"),
+                    targetMinutes = if (it.isNull("target_minutes")) null else it.optInt("target_minutes"),
+                )
+            }
+            val s = j.optJSONObject("summary") ?: JSONObject()
+            return WalkHistory(items, s.optInt("walks", items.size), s.optDouble("total_distance_m", 0.0), s.optInt("total_duration_sec"))
+        }
     }
 }

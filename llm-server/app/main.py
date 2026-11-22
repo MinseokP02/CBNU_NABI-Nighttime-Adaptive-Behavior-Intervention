@@ -21,7 +21,7 @@ from app import fallback, prompt_builder
 from app.analyzer import classify_intent, expression_for
 from app.config import Settings, get_settings
 from app.inference import InferenceEngine
-from app.safety import CRISIS_RESPONSE, check_input, check_output
+from app.safety import check_input, check_output, crisis_response
 from app.schemas import (
     CatAction,
     Emotion,
@@ -114,14 +114,14 @@ async def generate(req: GenerateRequest, request: Request, settings: SettingsDep
     if pre.status == SafetyStatus.CRISIS:
         logger.warning("request_id=%s crisis input routed to fixed response", req.request_id)
         return GenerateResponse(
-            request_id=req.request_id, response=CRISIS_RESPONSE, intent=Intent.CRISIS,
+            request_id=req.request_id, response=crisis_response(req.language.value), intent=Intent.CRISIS,
             emotion=Emotion.CONCERNED, cat_action=CatAction.COMFORT, intervention_category=None,
             safety_status=SafetyStatus.CRISIS, source="safety", model=settings.llm_model,
         )
     # 2) LLM-01 intent hint, also used to build the deterministic fallback.
     hint = classify_intent(req.user_message)
     emotion, action = expression_for(hint)
-    fallback_text = fallback.chat_reply(hint, category)
+    fallback_text = fallback.chat_reply(hint, category, req.language)
     mock_payload = {
         "response": fallback_text, "intent": hint.value, "emotion": emotion.value,
         "cat_action": action.value, "intervention_category": category.value if category else None,
@@ -150,7 +150,7 @@ async def generate(req: GenerateRequest, request: Request, settings: SettingsDep
 @app.post("/internal/v1/llm/intervention", response_model=InterventionResponse, dependencies=[Authorized])
 async def intervention(req: InterventionRequest, request: Request, settings: SettingsDep) -> InterventionResponse:
     category = req.intervention.category
-    text = fallback.intervention_guidance(category)
+    text = fallback.intervention_guidance(category, req.language)
     mock_payload = {"response": text, "intent": Intent.OTHER.value, "emotion": Emotion.CALM.value, "cat_action": CatAction.SIT.value, "intervention_category": category.value}
     messages = prompt_builder.build_intervention_messages(req)
     result = await _engine(request).generate_structured(messages, mock_payload=mock_payload, expected_category=category)
@@ -169,7 +169,7 @@ async def intervention(req: InterventionRequest, request: Request, settings: Set
 
 @app.post("/internal/v1/llm/mission", response_model=MissionResponse, dependencies=[Authorized])
 async def mission(req: MissionRequest, request: Request, settings: SettingsDep) -> MissionResponse:
-    text, emotion, action = fallback.mission_message(req.phase, req.mission.title, req.reward_exp)
+    text, emotion, action = fallback.mission_message(req.phase, req.mission.title, req.reward_exp, req.language)
     mock_payload = {"response": text, "intent": Intent.MISSION_QUERY.value, "emotion": emotion.value, "cat_action": action.value}
     messages = prompt_builder.build_mission_messages(req)
     result = await _engine(request).generate_structured(messages, mock_payload=mock_payload, expected_category=None, check_category=False)

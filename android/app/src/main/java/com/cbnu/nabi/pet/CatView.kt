@@ -1,5 +1,8 @@
 package com.cbnu.nabi.pet
 
+
+import com.cbnu.nabi.R
+import com.cbnu.nabi.tr
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Canvas
@@ -259,7 +262,7 @@ class CatView(
         catX = sw * 0.5f
         catY = sh * 0.72f
         buildTail()
-        say("냥?", 1.6f)
+        say(tr(R.string.meow_4), 1.6f)
     }
 
     // ---------------- lifecycle ----------------
@@ -311,7 +314,7 @@ class CatView(
 
     /** Called when the user taps "나비 부르기" while the cat is already out. */
     fun callOver() {
-        say("냥?", 1.4f)
+        say(tr(R.string.meow_4), 1.4f)
         walkTo(sw * 0.5f, sh * 0.7f, St.SIT)
     }
 
@@ -323,7 +326,7 @@ class CatView(
             CatAction.IDLE -> set(St.IDLE, 3f)
             CatAction.SLEEP -> {
                 set(St.SLEEP, 20f + rnd() * 15)
-                if (line == null) say("하암…", 1.4f)
+                if (line == null) say(tr(R.string.yawn), 1.4f)
             }
             CatAction.HAPPY -> {
                 set(St.HAPPY, 3.5f)
@@ -449,7 +452,7 @@ class CatView(
                     r < 0.85f -> set(St.GROOM, 3 + rnd() * 2)
                     else -> set(St.IDLE, 2 + rnd() * 2)
                 }
-                if (rnd() < 0.12f) say(pick("오늘 하루도 고생했어", "천천히 숨 쉬어 보자냥", "옆에 있을게"), 2.6f)
+                if (rnd() < 0.12f) say(pick(tr(R.string.you_did_great_today), tr(R.string.let_s_breathe_slowly_meow), tr(R.string.i_m_right_here)), 2.6f)
             }
             else -> {
                 when {
@@ -458,15 +461,15 @@ class CatView(
                     r < 0.74f -> set(St.GROOM, 3 + rnd() * 2)
                     r < 0.86f -> {
                         set(St.SLEEP, 10 + rnd() * 10)
-                        say("하암…", 1.4f)
+                        say(tr(R.string.yawn), 1.4f)
                     }
                     else -> set(St.IDLE, 2 + rnd() * 2)
                 }
                 if (mood == CatAction.HAPPY && rnd() < 0.2f) {
-                    say(pick("기분 좋다냥!", "냥냥~"))
+                    say(pick(tr(R.string.that_feels_nice_meow), tr(R.string.meow_meow)))
                     burst(P_HEART, 1)
                 } else if (aff > 55 && rnd() < 0.14f) {
-                    say(pick("냥~", "냐앙", "먀"))
+                    say(pick(tr(R.string.meow_3), tr(R.string.mrrow), tr(R.string.mew)))
                 }
             }
         }
@@ -485,7 +488,7 @@ class CatView(
         if (ptrDown && !longFired && st != St.FLEE && ptrTravel < 12 * dp && t - ptrDownT > LONG_PRESS_SEC) {
             longFired = true
             ptrZone = null
-            say("무슨 일이냥?", 1.4f)
+            say(tr(R.string.what_s_up_meow), 1.4f)
             host.openChat()
         }
 
@@ -510,7 +513,7 @@ class CatView(
                 St.HAPPY -> set(St.SIT, 2.5f)
                 St.SLEEP -> {
                     set(St.IDLE, 2f)
-                    say("으냐… 잘 잤다")
+                    say(tr(R.string.mmm_slept_well))
                 }
                 St.ANNOYED -> walkTo(randX(), randY(), St.GROOM)
                 else -> decide()
@@ -647,7 +650,7 @@ class CatView(
 
     private fun hiss(x: Float) {
         addAff(-10f)
-        say("하악!!", 1.6f)
+        say(tr(R.string.hiss), 1.6f)
         hissT = .9f
         host.buzz(PetService.BUZZ_HISS)
         burst(P_ANGER, 2)
@@ -664,11 +667,11 @@ class CatView(
         }
         if (st == St.SLEEP) {
             if (z == Zone.HEAD || z == Zone.BACK) {
-                say("쿨… 골골…")
+                say(tr(R.string.zzz_purr))
                 addAff(1f)
                 burst(P_HEART, 1)
             } else {
-                say("…!? 왜 깨워")
+                say(tr(R.string.why_d_you_wake_me))
                 annoy(-3f)
             }
             return
@@ -676,25 +679,25 @@ class CatView(
         when (z) {
             Zone.HEAD -> {
                 setHappy()
-                say(pick("골골골…", "거기, 거기", "냐앙~ 좋아", "턱도 긁어줘"))
+                say(pick(tr(R.string.purr_purr), tr(R.string.right_there_right_there), tr(R.string.mrrow_i_like_it), tr(R.string.scratch_my_chin_too)))
                 burst(P_HEART, 2)
                 addAff(1f)
             }
             Zone.BACK -> {
                 setHappy()
-                say(pick("음~ 괜찮네", "쓰담쓰담 허락", "좀 더 해봐"))
+                say(pick(tr(R.string.mm_not_bad), tr(R.string.petting_approved), tr(R.string.do_it_some_more)))
             }
             Zone.PAW -> {
-                say(pick("발은 내 거야", "…냥?", "젤리는 비싸"))
+                say(pick(tr(R.string.my_paws_are_mine), tr(R.string.meow_2), tr(R.string.toe_beans_aren_t_free)))
                 addAff(-1f)
             }
             Zone.BELLY -> {
                 if (aff > 72 && rnd() < 0.45f) {
                     setHappy()
                     bellyOk = true
-                    say("이번만이다냥…")
+                    say(tr(R.string.just_this_once_meow))
                 } else {
-                    say(pick("냥!!", "함정이었다냥!", "배는 안 돼!"))
+                    say(pick(tr(R.string.meow), tr(R.string.it_was_trap_meow), tr(R.string.not_belly)))
                     swat(x, y)
                     annoy(-6f)
                 }
@@ -731,9 +734,9 @@ class CatView(
             else -> return
         }
         setHappy()
-        if (rnd() < .07f) say(pick("골골골골…", "으냐~", "행복하다냥"))
+        if (rnd() < .07f) say(pick(tr(R.string.purr_purr_purr), tr(R.string.mrrr), tr(R.string.so_happy_meow)))
         if (overstim > 9 + aff / 10) {
-            say(pick("그만 만져!", "이제 됐다냥", "냥! 충분해"))
+            say(pick(tr(R.string.stop_touching_me), tr(R.string.that_s_enough_now_meow), tr(R.string.meow_that_s_plenty)))
             swat(x, y)
             annoy(-3f)
         }

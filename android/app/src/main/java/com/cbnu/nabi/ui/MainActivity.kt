@@ -1,5 +1,7 @@
 package com.cbnu.nabi.ui
 
+
+import com.cbnu.nabi.tr
 import android.Manifest
 import android.app.Activity
 import android.content.pm.PackageManager
@@ -39,10 +41,12 @@ class MainActivity : Activity() {
     lateinit var api: ApiClient
         private set
 
-    private enum class Tab(val label: String, val icon: Int) {
-        SLEEP("수면 일지", R.drawable.ic_book),
-        HOME("홈", R.drawable.ic_home),
-        PROFILE("마이페이지", R.drawable.ic_user),
+    private enum class Tab(private val labelRes: Int, val icon: Int) {
+        SLEEP(R.string.sleep_diary, R.drawable.ic_book),
+        HOME(R.string.home, R.drawable.ic_home),
+        PROFILE(R.string.my_page, R.drawable.ic_user);
+
+        val label: String get() = tr(labelRes)
     }
 
     private var loginPanel: LoginPanel? = null
@@ -60,13 +64,14 @@ class MainActivity : Activity() {
         lockPortraitOnPhones()
         CatPresence.install(application)
         current = java.lang.ref.WeakReference(this)
+        DemoMode.init(this, intent) // debug builds only
         prefs = Prefs(this)
         api = ApiClient(prefs)
         currentTab = savedInstanceState?.getString(KEY_TAB)
             ?.let { name -> Tab.values().firstOrNull { it.name == name } } ?: Tab.HOME
 
         render()
-        if (savedInstanceState == null) { showProposalFrom(intent); openTabFrom(intent) }
+        if (savedInstanceState == null) { showProposalFrom(intent); openTabFrom(intent); openWalkFrom(intent) }
         NabiAlarms.ensureChannels(this)
         NabiAlarms.reschedule(this)
 
@@ -84,6 +89,7 @@ class MainActivity : Activity() {
             return
         }
         profilePanel?.update()
+        onDataAccessChanged?.invoke() // back from the usage-access settings screen
         sleepPanel?.refresh()
         homePanel?.refresh()
     }
@@ -110,6 +116,7 @@ class MainActivity : Activity() {
         super.onNewIntent(intent)
         showProposalFrom(intent)
         openTabFrom(intent)
+        openWalkFrom(intent)
         if (intent.getBooleanExtra(EXTRA_DECORATE, false) && prefs.loggedIn) {
             if (tabButtons.isNotEmpty()) selectTab(Tab.HOME)
             homePanel?.enterDecorate()
@@ -126,23 +133,89 @@ class MainActivity : Activity() {
         MissionProposalModal(this, p) { response ->
             MissionProposalStore(this, prefs.email).record(p, response)
             if (response == ProposalResponse.ACCEPTED) when (p.kind.flow) {
+                // A server mission is already in GET /missions/active: just reload 나의 미션.
                 ProposalFlow.TRACKABLE -> {
-                    Toast.makeText(this, "나의 미션에 추가했어요", Toast.LENGTH_SHORT).show()
-                    homePanel?.onMissionsChanged()
+                    Toast.makeText(this, tr(R.string.added_to_my_missions), Toast.LENGTH_SHORT).show()
+                    if (p.serverMissionId != null) homePanel?.refresh() else homePanel?.onMissionsChanged()
                 }
                 ProposalFlow.SLEEP_DIARY -> openSleepRecord()
                 ProposalFlow.NOTICE -> Unit // acknowledged only; brightness control is not done here
             }
+            if (response == ProposalResponse.ACCEPTED && p.kind == ProposalKind.WALK && !p.preview) {
+                com.cbnu.nabi.walk.WalkActivity.open(this, p.id) // 산책 제안 수락 → 산책 page
+            }
         }.show()
+    }
+
+    private var recommendationLoading = false
+
+    /**
+     * API-12 → "나비의 제안": the server's intervention engine picks the intervention (with the LLM's
+     * explanation); the app only shows it, at most once a day and never during the tutorial.
+     */
+    fun maybeShowRecommendation() {
+        if (!prefs.loggedIn || tutorial != null || recommendationLoading || DemoMode.active) return
+        val store = MissionProposalStore(this, prefs.email)
+        if (store.shownToday() != null) return
+        recommendationLoading = true
+        bg({ api.recommendation(includeExplanation = true) }) { r ->
+            recommendationLoading = false
+            val rec = r.getOrNull() ?: return@bg
+            val id = rec.interventionId ?: return@bg
+            if (isFinishing || isDestroyed || tutorial != null || !prefs.loggedIn || store.shownToday() != null) return@bg
+            store.markShownToday("server-$id")
+            showMissionProposal(MissionProposals.fromRecommendation(rec))
+        }
+    }
+
+    /** A diary record changed or the server copy was synced: redraw the diary. */
+    fun onDiaryChanged() {
+        sleepPanel?.refresh()
     }
 
     /**
      * Connection point to the permission settings (used when an AUTO mission can't read its data).
-     * For now this opens the app's system settings, like 마이페이지 › 데이터 접근 권한.
+     * Same dialog as 마이페이지 › 데이터 접근 권한: Health Connect + 사용 정보 접근.
      */
-    fun openPermissionSettings() {
-        startActivity(android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-            android.net.Uri.parse("package:$packageName")))
+    fun openPermissionSettings() = DataAccessDialog.show(this)
+
+    /** Called when 데이터 접근 권한 changed (Health Connect result, or back from usage-access settings). */
+    var onDataAccessChanged: (() -> Unit)? = null
+
+    /** Health Connect's own permission screen (sleep + exercise read). Result: [onActivityResult]. */
+    fun requestHealthPermissions() {
+        val perms = com.cbnu.nabi.data.HealthConnectSource.PERMISSIONS
+        // Android 14+: health permissions are platform runtime permissions. The library's contract
+        // there emits an androidx.activity-only intent, which a plain Activity cannot launch.
+        if (Build.VERSION.SDK_INT >= 34) return requestPermissions(perms.toTypedArray(), REQ_HEALTH)
+        runCatching { startActivityForResult(com.cbnu.nabi.data.HealthConnectSource.permissionIntent(this), REQ_HEALTH) }
+            .onFailure { Toast.makeText(this, tr(R.string.couldn_t_open_health_connect_permission), Toast.LENGTH_SHORT).show() }
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == REQ_HEALTH) {
+            onHealthResult(permissions.filterIndexed { i, _ -> grantResults.getOrNull(i) == PackageManager.PERMISSION_GRANTED }.toSet())
+        }
+    }
+
+    @Deprecated("Activity result API; this app has no androidx.activity")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: android.content.Intent?) {
+        @Suppress("DEPRECATION")
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode != REQ_HEALTH) return
+        onHealthResult(com.cbnu.nabi.data.HealthConnectSource.parseGranted(resultCode, data))
+    }
+
+    private fun onHealthResult(granted: Set<String>) {
+        val all = granted.containsAll(com.cbnu.nabi.data.HealthConnectSource.PERMISSIONS)
+        Toast.makeText(this, when {
+            all -> tr(R.string.connected_to_health_connect)
+            granted.isNotEmpty() -> tr(R.string.only_some_health_connect_permissions_were)
+            else -> tr(R.string.health_connect_permissions_were_not_allowed)
+        }, Toast.LENGTH_SHORT).show()
+        onDataAccessChanged?.invoke()
+        profilePanel?.update()
     }
 
     /** A mission's state changed (e.g. an AUTO check was reported): refresh 나의 미션 and the count. */
@@ -157,6 +230,16 @@ class MainActivity : Activity() {
         val tab = Tab.values().firstOrNull { it.name == name } ?: return
         currentTab = tab
         if (prefs.loggedIn && tabButtons.isNotEmpty()) selectTab(tab)
+    }
+
+    /** The overlay walk suggestion was accepted ([EXTRA_OPEN_WALK] = proposal id): open the 산책 page. */
+    private fun openWalkFrom(intent: android.content.Intent?) {
+        if (intent?.hasExtra(EXTRA_OPEN_WALK) != true) return
+        val id = intent.getStringExtra(EXTRA_OPEN_WALK)
+        intent.removeExtra(EXTRA_OPEN_WALK)
+        if (!prefs.loggedIn) return
+        if (tabButtons.isNotEmpty()) selectTab(Tab.HOME)
+        com.cbnu.nabi.walk.WalkActivity.open(this, id)
     }
 
     private fun showProposalFrom(intent: android.content.Intent?) {
@@ -209,6 +292,7 @@ class MainActivity : Activity() {
     /** [analysisSheet]: the step explains the 나의 수면 분석 sheet, so open it; otherwise close it. */
     fun showScreenForTutorial(s: Screen, analysisSheet: Boolean = false) {
         if (s == Screen.PROFILE) profilePanel?.showMainForTutorial()
+        if (s == Screen.DIARY) sleepPanel?.showDiaryPage(animate = false)
         if (tabButtons.isNotEmpty()) selectTab(when (s) { Screen.HOME -> Tab.HOME; Screen.DIARY -> Tab.SLEEP; Screen.PROFILE -> Tab.PROFILE })
         if (analysisSheet) homePanel?.openAnalysisForTutorial { tutorial?.back() }
         else homePanel?.closeAnalysis()
@@ -239,7 +323,7 @@ class MainActivity : Activity() {
     /** "기록하기" on the home analysis card: the sleep record sheet (FR-03). */
     fun openSleepRecord(date: java.time.LocalDate = java.time.LocalDate.now()) {
         SleepRecordSheet(this, date) {
-            Toast.makeText(this, "수면 기록을 저장했어요", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, tr(R.string.sleep_record_saved), Toast.LENGTH_SHORT).show()
             homePanel?.refresh()
             sleepPanel?.refresh()
         }.show()
@@ -271,6 +355,7 @@ class MainActivity : Activity() {
         NabiAlarms.reschedule(this)
         render()
         homePanel?.refresh()
+        DemoMode.bringCatIntoRoom(this) // debug demo only
     }
 
     private fun logout() {
@@ -305,8 +390,11 @@ class MainActivity : Activity() {
             it.visibility = View.VISIBLE
             // Phone: pages leave room so the floating tab bar never covers their end.
             // The home room draws edge to edge behind the bar on purpose (Figma).
-            if (it !== home.view) {
-                it.setPadding(0, 0, 0, if (tablet) 0 else dp(NAV_HEIGHT_DP + NAV_BOTTOM_DP + 12))
+            val inset = if (tablet) 0 else dp(NAV_HEIGHT_DP + NAV_BOTTOM_DP + 12)
+            if (it === sleep.view) {
+                sleep.setBottomInset(inset) // two scrolling pages (분석 | 일지) inside a pager
+            } else if (it !== home.view) {
+                it.setPadding(0, 0, 0, inset)
                 (it as? ViewGroup)?.clipToPadding = false
             }
         }
@@ -383,6 +471,14 @@ class MainActivity : Activity() {
 
     private fun selectTab(tab: Tab) {
         currentTab = tab
+        if (DemoMode.active && tutorial == null) {
+            // Debug demo: back on 홈 after looking at the diary → 나비 offers the demo mission once.
+            if (tab == Tab.SLEEP) DemoMode.diaryVisited = true
+            else if (tab == Tab.HOME && DemoMode.diaryVisited && !DemoMode.proposalShown) {
+                DemoMode.proposalShown = true
+                window.decorView.postDelayed({ if (!isFinishing) showMissionProposal(DemoMode.proposal()) }, 700)
+            }
+        }
         for ((t, pane) in tabPanes) pane.visibility = if (t == tab) View.VISIBLE else View.GONE
         for ((t, item) in tabButtons) {
             val selected = t == tab
@@ -398,10 +494,12 @@ class MainActivity : Activity() {
     companion object {
         const val EXTRA_DECORATE = "decorate"
         const val EXTRA_OPEN_TAB = "open_tab"
+        const val EXTRA_OPEN_WALK = "open_walk"
         const val TAB_SLEEP = "SLEEP"
         /** The live main screen, so the chat panel can blur it. */
         var current: java.lang.ref.WeakReference<MainActivity>? = null
         private const val KEY_TAB = "tab"
+        private const val REQ_HEALTH = 41
         private const val THREE_PANE_MIN_WIDTH_DP = 840
         private const val NAV_HEIGHT_DP = 64
         private const val NAV_BOTTOM_DP = 9

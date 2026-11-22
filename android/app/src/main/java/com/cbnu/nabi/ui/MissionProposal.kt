@@ -1,8 +1,11 @@
 package com.cbnu.nabi.ui
 
+
+import com.cbnu.nabi.tr
 import android.content.Context
 import android.content.Intent
 import com.cbnu.nabi.R
+import com.cbnu.nabi.data.Recommendation
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -26,21 +29,24 @@ enum class ProposalFlow {
 }
 
 /** The intervention set from patent [0043]. Title/description below are defaults; data may override them. */
-enum class ProposalKind(val flow: ProposalFlow, val iconRes: Int, val defaultTitle: String, val defaultDescription: String) {
-    WALK(ProposalFlow.TRACKABLE, R.drawable.ic_paw, "가볍게 산책하기",
-        "한동안 움직임이 적었어요.\n잠깐 걸으며 몸을 깨워 볼까요?"),
-    STRETCH(ProposalFlow.TRACKABLE, R.drawable.ic_sparkle, "가벼운 스트레칭",
-        "오래 앉아 있었어요.\n잠시 일어나 몸을 쭉 펴 볼까요?"),
-    DIM_LIGHTS(ProposalFlow.TRACKABLE, R.drawable.ic_moon, "조명 낮추기",
-        "잠들 준비를 할 시간이에요.\n방의 조명을 조금 어둡게 해 볼까요?"),
-    BRIGHTNESS_NOTICE(ProposalFlow.NOTICE, R.drawable.ic_bell, "화면 밝기 낮추기 안내",
-        "곧 잠들 시간이에요.\n화면이 조금씩 어두워질 거예요."),
-    PUT_DOWN_PHONE(ProposalFlow.TRACKABLE, R.drawable.ic_bed, "휴대폰 내려놓기",
-        "잘 시간이 지났어요.\n휴대폰을 내려놓고 눈을 감아 볼까요?"),
-    SUNLIGHT(ProposalFlow.TRACKABLE, R.drawable.ic_sun, "햇빛 쬐기",
-        "좋은 아침이에요.\n창가에서 잠깐 햇빛을 쬐며 하루를 시작해 볼까요?"),
-    SLEEP_DIARY(ProposalFlow.SLEEP_DIARY, R.drawable.ic_book, "수면일지 작성하기",
-        "어젯밤 잠은 어땠나요?\n잊기 전에 수면일지를 남겨 주세요."),
+enum class ProposalKind(val flow: ProposalFlow, val iconRes: Int, private val titleRes: Int, private val descriptionRes: Int) {
+    WALK(ProposalFlow.TRACKABLE, R.drawable.ic_paw, R.string.take_light_walk,
+        R.string.you_haven_t_moved_much_for),
+    STRETCH(ProposalFlow.TRACKABLE, R.drawable.ic_sparkle, R.string.light_stretching,
+        R.string.you_ve_been_sitting_for_long),
+    DIM_LIGHTS(ProposalFlow.TRACKABLE, R.drawable.ic_moon, R.string.dim_lights,
+        R.string.time_to_get_ready_for_sleep),
+    BRIGHTNESS_NOTICE(ProposalFlow.NOTICE, R.drawable.ic_bell, R.string.screen_dimming_notice,
+        R.string.it_s_almost_bedtime_your_screen),
+    PUT_DOWN_PHONE(ProposalFlow.TRACKABLE, R.drawable.ic_bed, R.string.put_your_phone_down,
+        R.string.it_s_past_bedtime_how_about),
+    SUNLIGHT(ProposalFlow.TRACKABLE, R.drawable.ic_sun, R.string.get_some_sunlight,
+        R.string.good_morning_how_about_starting_your),
+    SLEEP_DIARY(ProposalFlow.SLEEP_DIARY, R.drawable.ic_book, R.string.write_your_sleep_diary,
+        R.string.how_did_you_sleep_last_night_2);
+
+    val defaultTitle: String get() = tr(titleRes)
+    val defaultDescription: String get() = tr(descriptionRes)
 }
 
 /**
@@ -73,6 +79,12 @@ data class MissionProposal(
     val verify: VerifyMode = VerifyMode.MANUAL,
     /** UI preview data (debug only) — never stored with the user's real missions. */
     val preview: Boolean = false,
+    /**
+     * Set when the proposal comes from GET /interventions/recommendations with a mission: that
+     * mission is tracked by the server (GET /missions/active, POST /missions/{id}/complete), so
+     * accepting it does not add a local copy to 나의 미션.
+     */
+    val serverMissionId: Int? = null,
 )
 
 /** Patent [0030]: 수락 / 나중에 / 무시. Closing the modal any other way records nothing. */
@@ -85,6 +97,7 @@ object MissionProposals {
     private const val EXTRA_TITLE = "proposal_title"
     private const val EXTRA_DESC = "proposal_desc"
     private const val EXTRA_VERIFY = "proposal_verify"
+    private const val EXTRA_MISSION = "proposal_server_mission"
 
     /**
      * Show "나비의 제안" for [p]. Works from anywhere (e.g. the overlay cat's service after the user
@@ -95,7 +108,8 @@ object MissionProposals {
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             .putExtra(EXTRA_ID, p.id).putExtra(EXTRA_KIND, p.kind.name)
             .putExtra(EXTRA_TITLE, p.title).putExtra(EXTRA_DESC, p.description)
-            .putExtra(EXTRA_VERIFY, p.verify.name))
+            .putExtra(EXTRA_VERIFY, p.verify.name)
+            .apply { p.serverMissionId?.let { putExtra(EXTRA_MISSION, it) } })
     }
 
     /**
@@ -123,9 +137,31 @@ object MissionProposals {
         val id = intent?.getStringExtra(EXTRA_ID) ?: return null
         val kind = runCatching { ProposalKind.valueOf(intent.getStringExtra(EXTRA_KIND) ?: "") }.getOrNull() ?: return null
         val verify = runCatching { VerifyMode.valueOf(intent.getStringExtra(EXTRA_VERIFY) ?: "") }.getOrDefault(VerifyMode.MANUAL)
+        val missionId = intent.getIntExtra(EXTRA_MISSION, -1).takeIf { it >= 0 }
         return MissionProposal(id, kind,
             intent.getStringExtra(EXTRA_TITLE) ?: kind.defaultTitle,
-            intent.getStringExtra(EXTRA_DESC) ?: kind.defaultDescription, verify)
+            intent.getStringExtra(EXTRA_DESC) ?: kind.defaultDescription, verify, serverMissionId = missionId)
+    }
+
+    /**
+     * The server's recommendation (API-12) as a proposal. The intervention code only picks the icon;
+     * title and text come from the server (LLM explanation, or its fixed message as fallback).
+     */
+    fun fromRecommendation(rec: Recommendation): MissionProposal {
+        val kind = when (rec.code) {
+            "SH_DAYTIME_ACTIVITY" -> ProposalKind.WALK
+            "RX_BREATHING", "SH_CAFFEINE_CUTOFF" -> ProposalKind.STRETCH
+            "SS_CONSISTENT_BEDTIME", "CG_WORRY_NOTE" -> ProposalKind.DIM_LIGHTS
+            "SS_FIXED_WAKE_TIME", "SH_NAP_LIMIT" -> ProposalKind.SUNLIGHT
+            else -> ProposalKind.PUT_DOWN_PHONE // SC_*, SH_SCREEN_OFF
+        }
+        return MissionProposal(
+            id = "server-${rec.interventionId}",
+            kind = kind,
+            title = rec.title.ifBlank { kind.defaultTitle },
+            description = rec.explanation ?: rec.message.ifBlank { kind.defaultDescription },
+            serverMissionId = rec.missionId,
+        )
     }
 
     /** Consume it so a rotation / re-delivery doesn't show the same proposal twice. */
@@ -163,7 +199,7 @@ class MissionProposalStore(context: Context, email: String?) {
         val log = JSONArray(sp.getString(K_RESPONSES, "[]"))
         log.put(JSONObject().put("id", p.id).put("kind", p.kind.name).put("response", r.name).put("at", System.currentTimeMillis()))
         val e = sp.edit().putString(K_RESPONSES, log.toString())
-        if (r == ProposalResponse.ACCEPTED && p.kind.flow == ProposalFlow.TRACKABLE) {
+        if (r == ProposalResponse.ACCEPTED && p.kind.flow == ProposalFlow.TRACKABLE && p.serverMissionId == null) {
             val list = readAccepted().filterNot { it.proposal.id == p.id } + AcceptedMission(p, false)
             e.putString(K_ACCEPTED, writeAccepted(list))
         }
@@ -184,6 +220,14 @@ class MissionProposalStore(context: Context, email: String?) {
         val list = readAccepted()
         if (list.none { it.proposal.id == id }) return
         sp.edit().putString(K_ACCEPTED, writeAccepted(list.map { if (it.proposal.id == id) change(it) else it })).apply()
+    }
+
+    /** Id of the server proposal already shown today, or null. */
+    fun shownToday(): String? =
+        sp.getString(K_SHOWN, null)?.split('|')?.takeIf { it.size == 2 && it[0] == java.time.LocalDate.now().toString() }?.get(1)
+
+    fun markShownToday(id: String) {
+        sp.edit().putString(K_SHOWN, "${java.time.LocalDate.now()}|$id").apply()
     }
 
     /** Every response so far: id, kind, ACCEPTED / LATER / DISMISSED, time (ms). For syncing later. */
@@ -215,6 +259,7 @@ class MissionProposalStore(context: Context, email: String?) {
     companion object {
         private const val K_ACCEPTED = "accepted"
         private const val K_RESPONSES = "responses"
+        private const val K_SHOWN = "server_shown"
         private val previewAccepted = mutableListOf<AcceptedMission>()
 
         /**

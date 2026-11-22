@@ -1,5 +1,8 @@
 package com.cbnu.nabi.ui
 
+
+import com.cbnu.nabi.R
+import com.cbnu.nabi.tr
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Intent
@@ -47,7 +50,7 @@ class RoomCat(private val activity: Activity, private val floor: FrameLayout) : 
                 return true
             }
         }
-        t.contentDescription = "나비. 쓰다듬거나 길게 눌러 대화하기"
+        t.contentDescription = tr(R.string.nabi_pet_or_long_press_to)
         floor.addView(c, FrameLayout.LayoutParams(c.winW, c.winH))
         floor.addView(t, FrameLayout.LayoutParams(1, 1))
         cat = c; touch = t

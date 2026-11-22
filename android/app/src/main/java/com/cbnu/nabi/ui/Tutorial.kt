@@ -1,5 +1,8 @@
 package com.cbnu.nabi.ui
 
+
+import com.cbnu.nabi.R
+import com.cbnu.nabi.tr
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
@@ -67,34 +70,34 @@ object NabiTutorial {
     var chatPreview = false
 
     fun steps(): List<TutorialStep> = listOf(
-        TutorialStep("나비와 인사해 볼까요?", "나비를 톡 터치해 보세요! 나비가 반응해 줄 거예요.",
+        TutorialStep(tr(R.string.say_hi_to_nabi), tr(R.string.give_nabi_tap_nabi_will_react),
             MainActivity.Screen.HOME, { listOfNotNull(it.tutorialHome?.tutorialCatTarget) },
             TutorialGesture.TAP, passThrough = true, note = ::catNote, cardAtTop = true),
-        TutorialStep("나비와 대화할 수 있어요!", "나비를 꾹 길게 누르면 대화창이 열려요.\n지금은 구경만 할 수 있어요.",
+        TutorialStep(tr(R.string.you_can_chat_with_nabi), tr(R.string.long_press_nabi_to_open_chat),
             MainActivity.Screen.HOME, { listOfNotNull(it.tutorialHome?.tutorialCatTarget) },
             TutorialGesture.LONG_PRESS, passThrough = true, note = ::catNote, cardAtTop = true),
-        TutorialStep("오늘의 수면을 기록해요", "잠든 시간과 일어난 시간, 수면 상태를 기록할 수 있어요.",
+        TutorialStep(tr(R.string.log_today_s_sleep_2), tr(R.string.record_when_you_fell_asleep_when),
             MainActivity.Screen.DIARY, { listOfNotNull(it.tutorialDiary?.recordButton) }, reveal = true),
-        TutorialStep("나의 수면 패턴을 확인해요", "기록된 수면 정보를 바탕으로 나의 수면 패턴을 살펴볼 수 있어요.\n카드를 누르면 자세한 분석이 열려요.",
+        TutorialStep(tr(R.string.check_your_sleep_pattern), tr(R.string.see_your_sleep_pattern_based_on),
             MainActivity.Screen.HOME, { listOfNotNull(it.tutorialHome?.analysisCard) }),
-        TutorialStep("지금 나의 수면 상태예요", "평소 나의 수면 패턴과 비교해 지금 상태를 알려 주고, 달라진 점은 '살펴볼 점'에 보여 줘요.\n처음 며칠은 나의 평소 패턴을 알아가는 기간이에요.",
+        TutorialStep(tr(R.string.your_current_sleep_status), tr(R.string.shows_how_you_re_doing_compared),
             MainActivity.Screen.HOME, { listOfNotNull(it.tutorialHome?.tutorialAnalysis?.statusView) }, reveal = true, inSheet = true),
-        TutorialStep("최근 7일의 흐름을 봐요", "그래프로 매일의 총 수면시간과 수면 효율이 어떻게 달라졌는지 확인할 수 있어요.",
+        TutorialStep(tr(R.string.see_last_7_days), tr(R.string.chart_shows_how_your_total_sleep),
             MainActivity.Screen.HOME, { listOfNotNull(it.tutorialHome?.tutorialAnalysis?.trendView) }, reveal = true, inSheet = true),
-        TutorialStep("평소와 비교해 봐요", "최근 기록을 평소 나의 수면과 비교하고, 그 아래에서 수면에 영향을 주는 생활 습관도 살펴볼 수 있어요.",
+        TutorialStep(tr(R.string.compare_with_usual_2), tr(R.string.compare_recent_records_with_your_usual),
             MainActivity.Screen.HOME, { listOfNotNull(it.tutorialHome?.tutorialAnalysis?.compareView) }, reveal = true, inSheet = true),
-        TutorialStep("나비와 함께 작은 미션에 도전해요", "나비가 제안하는 미션을 확인하고 수락할 수 있어요.",
+        TutorialStep(tr(R.string.take_on_small_missions_with_nabi), tr(R.string.see_and_accept_missions_nabi_suggests),
             MainActivity.Screen.HOME, { listOfNotNull(it.tutorialHome?.missionButton) }),
-        TutorialStep("나비를 위한 선물을 골라 보세요", "모은 코인으로 나비를 위한 아이템을 구매할 수 있어요.",
+        TutorialStep(tr(R.string.pick_gift_for_nabi), tr(R.string.use_coins_you_ve_earned_to),
             MainActivity.Screen.HOME, { listOfNotNull(it.tutorialHome?.storeButton) }),
-        TutorialStep("나에게 맞는 수면 습관을 만들어 가요",
-            "목표 취침·기상 시각을 정해 보세요.\n'추천 수면 일정'에서는 나비가 추천하는 일정도 받아 볼 수 있어요.",
+        TutorialStep(tr(R.string.build_sleep_habits_that_fit_you),
+            tr(R.string.set_your_target_bedtime_and_wake),
             MainActivity.Screen.PROFILE, { listOfNotNull(it.tutorialProfile?.goalCard) }, reveal = true),
     )
 
     private fun catNote(a: MainActivity): String? =
         if (a.tutorialHome?.catInRoom != false) null
-        else "지금은 나비가 밖에서 놀고 있어요. 이 버튼으로 나비를 불러올 수 있어요."
+        else tr(R.string.nabi_is_out_playing_right_now)
 }
 
 /** The coach-mark layer, added on top of MainActivity's window. */
@@ -278,26 +281,26 @@ class TutorialOverlay(
             setPadding(dp(9), dp(3), dp(9), dp(3)); background = activity.rounded(Palette.lavenderSoft, 999)
         })
         top.addView(View(activity), LinearLayout.LayoutParams(0, 1, 1f))
-        top.addView(activity.label("건너뛰기", 12f, Palette.muted, bold = true).apply {
+        top.addView(activity.label(tr(R.string.skip), 12f, Palette.muted, bold = true).apply {
             setPadding(dp(10), dp(6), 0, dp(6)); setOnClickListener { end() }
         })
         card.addView(top)
         card.addView(activity.label(s.title, 18f, title = true).apply { setPadding(0, dp(10), 0, 0) })
-        if (s.gesture == TutorialGesture.LONG_PRESS) card.addView(activity.label("꾹 누르기", 12f, Color.WHITE, bold = true).apply {
+        if (s.gesture == TutorialGesture.LONG_PRESS) card.addView(activity.label(tr(R.string.long_press), 12f, Color.WHITE, bold = true).apply {
             setPadding(dp(10), dp(4), dp(10), dp(4)); background = activity.rounded(Color.parseColor("#9D7BC4"), 999)
         }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(8) })
         card.addView(activity.label(s.body, 13f, Palette.ink).apply { setPadding(0, dp(8), 0, 0); setLineSpacing(dp(3).toFloat(), 1f) })
         s.note(activity)?.let { card.addView(activity.label(it, 11.5f, Palette.muted).apply { setPadding(0, dp(6), 0, 0) }) }
 
         val nav = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        nav.addView(activity.label("이전", 13f, Palette.muted, bold = true).apply {
+        nav.addView(activity.label(tr(R.string.back), 13f, Palette.muted, bold = true).apply {
             setPadding(dp(4), dp(10), dp(16), dp(10))
             visibility = if (index == 0) View.INVISIBLE else View.VISIBLE
             setOnClickListener { back() }
         })
         nav.addView(View(activity), LinearLayout.LayoutParams(0, 1, 1f))
         val last = index == steps.lastIndex
-        nav.addView(Modals.button(activity, if (last) "시작하기" else "다음", true) { if (last) end() else go(index + 1) }.apply {
+        nav.addView(Modals.button(activity, if (last) tr(R.string.get_started) else tr(R.string.next), true) { if (last) end() else go(index + 1) }.apply {
             setPadding(dp(22), 0, dp(22), 0)
         }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(40)))
         card.addView(nav, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(12) })

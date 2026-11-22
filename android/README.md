@@ -11,28 +11,31 @@ Android 앱 ──HTTP(JWT)──▶ backend :8000 /api/v1 ──X-Internal-Toke
 
 ## 실행
 
-1. 서버를 먼저 켭니다 (루트 폴더에서):
+1. 서버를 먼저 켭니다 (루트 폴더에서, Docker Desktop 필요):
    ```powershell
-   docker compose up -d db llm-server
-   docker compose run --rm backend alembic upgrade head
-   docker compose run --rm backend python -m app.seed.seed_interventions
-   docker compose up -d --build backend
+   powershell -ExecutionPolicy Bypass -File scripts\start-server.ps1
    ```
 2. Android Studio → File → Open → 이 `android` 폴더를 엽니다. Gradle 동기화가 끝날 때까지 기다립니다.
 3. Run ▶ 으로 에뮬레이터나 폰에 설치합니다.
-4. 앱에서 서버 주소 입력 → **연결 확인** → 회원가입/로그인 → **다른 앱 위에 표시 권한 허용** → **나비 부르기**.
+4. 회원가입/로그인 → **다른 앱 위에 표시 권한 허용** → **나비 부르기**. 서버 주소는 앱에서 입력하지 않습니다.
 
 ### 서버 주소
 
-백엔드는 `127.0.0.1:8000`에만 열려 있습니다 (`compose.yaml`).
+앱에는 서버 주소 입력 화면이 없습니다. 주소는 빌드 종류별로 `app/build.gradle.kts`의 `DEFAULT_BASE_URL`에 고정됩니다.
 
-| 기기 | 주소 | 준비 |
-|---|---|---|
-| 에뮬레이터 | `http://10.0.2.2:8000` (기본값) | 없음 |
-| USB로 연결한 폰 | `http://127.0.0.1:8000` | PC에서 `adb reverse tcp:8000 tcp:8000` (연결할 때마다) |
-| 같은 Wi‑Fi의 폰 | `http://<PC IP>:8000` | `compose.yaml`의 포트를 `0.0.0.0`으로 열어야 함. 개발용으로만 |
+| 빌드 | 주소 |
+|---|---|
+| debug | `http://10.0.2.2:8000` — 에뮬레이터에서 이 PC의 `127.0.0.1:8000`(백엔드)을 가리킴 |
+| release | `https://api.example.com` — 실제 배포 주소로 바꿔서 빌드 |
 
-HTTP(비암호화) 연결은 **debug 빌드에서만** 허용됩니다 (`app/src/debug/res/xml/network_security_config.xml`). release 빌드는 HTTPS만 쓰며 기본 주소는 `app/build.gradle.kts`의 `DEFAULT_BASE_URL`에서 바꿉니다.
+USB로 연결한 실제 폰에서 debug 빌드를 쓰려면 `DEFAULT_BASE_URL`을 `http://127.0.0.1:8000`으로 바꿔 빌드하고 PC에서 `adb reverse tcp:8000 tcp:8000`을 실행합니다.
+
+HTTP(비암호화) 연결은 **debug 빌드에서만** 허용됩니다 (`app/src/debug/res/xml/network_security_config.xml`). release 빌드는 HTTPS만 씁니다.
+
+### 언어
+
+화면 문구는 `res/values/strings.xml`(한국어, 기본)과 `res/values-en/strings.xml`(영어)에 있고, 기기 언어(또는 Android 13+의 앱별 언어 설정)에 따라 바뀝니다. 코드에서는 `tr(R.string.키, 값…)`으로 씁니다 (`NabiApp.kt`). 새 문구를 추가할 때는 두 파일에 같은 키로 넣으세요.
+- 앱은 모든 요청에 `Accept-Language`(앱 언어)를 보내고, 서버는 중재 추천·미션 문구, 대체 응답, LLM 대화를 그 언어(ko/en)로 돌려줍니다.
 
 ## 나비가 하는 일
 
@@ -64,6 +67,41 @@ HTTP(비암호화) 연결은 **debug 빌드에서만** 허용됩니다 (`app/src
 - Android 12+에서 "알람 및 리마인더"(정확한 알람) 권한이 없으면 알림 설정 화면에 권한 카드가 뜨고, 그동안은 몇 분 늦을 수 있는 일반 알람으로 예약합니다.
 - 테스트: 수면 목표를 1~2분 뒤로 저장 → `adb shell dumpsys alarm | grep -A3 com.cbnu.nabi`로 예약 확인.
 
+## 기기 데이터 연동 (Health Connect · 사용 정보)
+
+마이페이지 › 데이터 접근 권한에서 연결합니다 (`data/DeviceData.kt`, `ui/DataAccessDialog.kt`).
+
+| 출처 | 권한 | 쓰는 곳 |
+|---|---|---|
+| Health Connect 수면 세션 | `health.READ_SLEEP` | 수면 기록 시트를 자동으로 채움: 취침(세션 시작), 기상(마지막 수면 단계 끝), 입면 잠복기(시작→첫 수면 단계), 밤중 각성(첫·마지막 수면 사이 깨어 있던 단계의 횟수·분) |
+| Health Connect 운동 세션 | `health.READ_EXERCISE` | 전날 운동 시간 (0분이면 채우지 않음) |
+| UsageStats | `PACKAGE_USAGE_STATS` (시스템 설정에서 허용) | 잠들기 전 2시간 화면 켜짐 시간 → `screen_before_bed_min` (Android 9+) |
+
+- 자동으로 채운 값은 모두 사용자가 고칠 수 있고, 권한이 없으면 예전처럼 직접 입력합니다.
+- 에뮬레이터 테스트 (debug 빌드 전용 시더, 어젯밤 23:40~07:05 수면과 전날 40분 걷기를 기록):
+  ```powershell
+  adb shell pm grant com.cbnu.nabi android.permission.health.WRITE_SLEEP
+  adb shell pm grant com.cbnu.nabi android.permission.health.WRITE_EXERCISE
+  adb shell am broadcast -n com.cbnu.nabi/.debug.HealthSeedReceiver
+  ```
+
+## 산책 (나비의 산책 제안 → 산책 페이지)
+
+| 단계 | 동작 |
+|---|---|
+| 제안 | 앱 밖에서 나비(오버레이)가 "잠깐 같이 산책할래냥?" 카드를 띄움 (`pet/WalkSuggestionCard.kt`). 10~20시에 30분마다 `GET /interventions/recommendations`를 보고 `SH_DAYTIME_ACTIVITY`(낮 활동)이면 제안, 하루 한 번 |
+| 수락 | "좋아, 같이 걷자" → 나의 미션에 진행 중으로 추가 → NABI 앱 → 산책 페이지 (`walk/WalkActivity.kt`). 앱 안의 나비의 제안(산책)을 수락해도 같은 페이지로 감 |
+| 경로 추천 | 현재 위치에서 출발해 돌아오는 순환 경로. 산책 시간 15/30/45/60분, "다른 경로", 지도를 눌러 지나갈 곳 추가(최대 3곳, 표시를 누르면 삭제), "초기화" |
+| 기록 | 산책 시작 → 위치 포그라운드 서비스(`WalkTrackingService`)가 화면이 꺼져도 경로 기록 → 산책 끝내기 → `POST /walks` |
+| 내역 | `GET /walks` 목록과 누적 거리·시간. 저장 실패 시 기기에 보관했다가 다음에 자동 전송 (`PendingWalks`) |
+
+- 지도: OpenStreetMap 타일(osmdroid, API 키 없음). 경로: 공개 OSRM 도보 라우터 `routing.openstreetmap.de` — **출발점과 경유지 좌표가 이 외부 서버로 전송됨**. 연결 실패 시 직선 경로로 표시. 정식 서비스 전에는 자체 라우터나 계약된 지도 API로 바꾸는 것을 권장.
+- 테스트 (debug 빌드): 나비 화면 상주를 켠 뒤
+  ```powershell
+  adb emu geo fix 127.4563 36.6285          # 에뮬레이터 위치 (경도 위도)
+  adb shell am broadcast -n com.cbnu.nabi/.debug.SuggestWalkReceiver
+  ```
+
 ## 구조
 
 ```text
@@ -73,7 +111,7 @@ android/
     ├── data/
     │   ├── ApiClient.kt            /api/v1 호출 (HttpURLConnection + org.json, 외부 라이브러리 없음)
     │   ├── Models.kt               응답 모델, CatAction enum, 한글 라벨
-    │   └── Prefs.kt                서버 주소, JWT, conversation_id, 친밀도
+    │   └── Prefs.kt                JWT, conversation_id, 친밀도 (서버 주소는 빌드 설정값)
     ├── alarm/
     │   ├── NabiAlarms.kt           알림·기상 알람 예약/취소 (AlarmManager), 알림 채널
     │   ├── AlarmReceiver.kt        알림 표시 + 다음 날 재예약
@@ -92,7 +130,6 @@ android/
 
 | 화면/기능 | API |
 |---|---|
-| 연결 확인 | `GET /health` |
 | 회원가입·로그인 | `POST /auth/register`, `POST /auth/login` |
 | 홈 상태 | `GET /users/me/state` |
 | 미션 | `GET /missions/active`, `POST /missions/{id}/complete` |

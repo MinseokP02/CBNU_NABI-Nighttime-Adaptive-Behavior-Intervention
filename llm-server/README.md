@@ -63,3 +63,7 @@ docker run --rm -v ${PWD}:/src -w /src python:3.12-slim sh -c "pip install -q -r
 ```
 
 DB가 필요 없습니다. 외부 모델 호출은 mock으로 대체해 다음 경우를 검증합니다: 정상 응답, 잘못된 enum 뒤 재시도로 복구, 승인되지 않은 중재로 바꾼 응답, 의료 조언 응답, timeout, HTTP 500.
+
+## 응답 언어
+
+`/generate`, `/intervention`, `/mission` 요청의 `language`(`ko` 기본, `en`)에 따라 프롬프트에 답변 언어를 지시하고, mock·대체 응답·위기 응답도 그 언어로 돌려줍니다. 안전 검사(위기·의료 요청·출력 위반)와 의도 분류에는 영어 패턴도 있습니다.

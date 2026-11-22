@@ -13,6 +13,7 @@ from app.api.routes import (
     rewards,
     sleep,
     users,
+    walk,
 )
 
 API_PREFIX = "/api/v1"
@@ -28,5 +29,6 @@ api_router.include_router(mission.router, prefix=f"{API_PREFIX}/missions", tags=
 api_router.include_router(chat.router, prefix=f"{API_PREFIX}/chat", tags=["chat"])
 api_router.include_router(cat.router, prefix=f"{API_PREFIX}/cat", tags=["cat"])
 api_router.include_router(report.router, prefix=f"{API_PREFIX}/reports", tags=["reports"])
+api_router.include_router(walk.router, prefix=f"{API_PREFIX}/walks", tags=["walks"])
 api_router.include_router(rewards.router, prefix=f"{API_PREFIX}/rewards", tags=["rewards"])
 api_router.include_router(health.router, tags=["health"])

@@ -26,7 +26,7 @@ from app.main import app  # noqa: E402
 test_engine = create_engine(TEST_DATABASE_URL, pool_pre_ping=True)
 TestingSession = sessionmaker(bind=test_engine, expire_on_commit=False)
 TABLES = (
-    "chat_messages, conversations, reward_transactions, mission_results, mission_assignments, cat_profiles, "
+    "walk_records, chat_messages, conversations, reward_transactions, mission_results, mission_assignments, cat_profiles, "
     "risk_analyses, baselines, behavior_records, sleep_records, missions, interventions, users"
 )
 API = "/api/v1"

@@ -1,5 +1,7 @@
 package com.cbnu.nabi.ui
 
+
+import com.cbnu.nabi.tr
 import android.app.Dialog
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
@@ -28,14 +30,14 @@ class MissionProposalModal(
 
         // header: "나비의 제안" + close (✕)
         val head = FrameLayout(activity)
-        head.addView(activity.label("나비의 제안", 12f, Palette.lavenderDeep, bold = true).apply {
+        head.addView(activity.label(tr(R.string.nabi_s_suggestion), 12f, Palette.lavenderDeep, bold = true).apply {
             setPadding(activity.dp(10), activity.dp(4), activity.dp(10), activity.dp(4))
             background = activity.rounded(Palette.lavenderSoft, 999)
         }, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER))
         head.addView(FrameLayout(activity).apply {
             addView(activity.icon(R.drawable.ic_plus, Palette.muted, 16).apply { rotation = 45f },
                 FrameLayout.LayoutParams(activity.dp(16), activity.dp(16), Gravity.CENTER))
-            contentDescription = "닫기"
+            contentDescription = tr(R.string.close)
             setOnClickListener { dialog.dismiss() } // no response recorded
         }, FrameLayout.LayoutParams(activity.dp(36), activity.dp(36), Gravity.END or Gravity.CENTER_VERTICAL)
             .apply { setMargins(0, -activity.dp(10), -activity.dp(10), 0) })
@@ -55,16 +57,16 @@ class MissionProposalModal(
             gravity = Gravity.CENTER; setPadding(activity.dp(4), activity.dp(8), activity.dp(4), 0)
             setLineSpacing(activity.dp(3).toFloat(), 1f)
         })
-        if (proposal.preview) box.addView(activity.label("UI 미리보기 · 실제 추천이 아니에요", 10f, Palette.muted).apply {
+        if (proposal.preview) box.addView(activity.label(tr(R.string.ui_preview_not_real_recommendation), 10f, Palette.muted).apply {
             gravity = Gravity.CENTER; setPadding(0, activity.dp(8), 0, 0)
         })
 
         // 수락하기 (primary, full width) — then 나중에 · 무시 as text buttons
-        box.addView(Modals.button(activity, "수락하기", true) { respond(ProposalResponse.ACCEPTED) },
+        box.addView(Modals.button(activity, tr(R.string.accept), true) { respond(ProposalResponse.ACCEPTED) },
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, activity.dp(46)).apply { topMargin = activity.dp(18) })
         val row = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL }
-        row.addView(textButton("나중에") { respond(ProposalResponse.LATER) }, LinearLayout.LayoutParams(0, activity.dp(44), 1f))
-        row.addView(textButton("무시") { respond(ProposalResponse.DISMISSED) }, LinearLayout.LayoutParams(0, activity.dp(44), 1f))
+        row.addView(textButton(tr(R.string.later)) { respond(ProposalResponse.LATER) }, LinearLayout.LayoutParams(0, activity.dp(44), 1f))
+        row.addView(textButton(tr(R.string.dismiss)) { respond(ProposalResponse.DISMISSED) }, LinearLayout.LayoutParams(0, activity.dp(44), 1f))
         box.addView(row, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
             .apply { topMargin = activity.dp(4) })
 

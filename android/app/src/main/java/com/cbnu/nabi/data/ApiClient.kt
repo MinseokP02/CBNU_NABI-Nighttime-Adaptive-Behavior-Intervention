@@ -1,5 +1,8 @@
 package com.cbnu.nabi.data
 
+
+import com.cbnu.nabi.R
+import com.cbnu.nabi.tr
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
@@ -109,18 +112,72 @@ class ApiClient(private val prefs: Prefs) {
         return JSONObject(request("POST", "/behavior-records", body))
     }
 
+    /** API-06. Newest first; the server caps [limit] at 100. */
+    fun sleepRecords(start: LocalDate, end: LocalDate, limit: Int = 100): List<SleepRecordItem> =
+        SleepRecordItem.list(JSONObject(request("GET", "/sleep-records?start_date=$start&end_date=$end&limit=$limit")))
+
+    /** API-08. Newest first; the server caps [limit] at 100. */
+    fun behaviorRecords(start: LocalDate, end: LocalDate, limit: Int = 100): List<BehaviorRecordItem> =
+        BehaviorRecordItem.list(JSONObject(request("GET", "/behavior-records?start_date=$start&end_date=$end&limit=$limit")))
+
+    // ---------- walks (산책 내역) ----------
+    /** POST /walks body. [route] / [path] are [lat, lon] pairs (thin them first; the server takes at most 2000 points). */
+    fun walkBody(
+        startedAt: ZonedDateTime,
+        endedAt: ZonedDateTime,
+        distanceM: Double,
+        targetMinutes: Int?,
+        plannedDistanceM: Double?,
+        route: List<DoubleArray>,
+        path: List<DoubleArray>,
+        proposalId: String?,
+    ): JSONObject {
+        val iso = DateTimeFormatter.ISO_OFFSET_DATE_TIME
+        fun pts(list: List<DoubleArray>) = JSONArray().apply {
+            list.forEach { put(JSONArray().put(Math.round(it[0] * 1e6) / 1e6).put(Math.round(it[1] * 1e6) / 1e6)) }
+        }
+        val body = JSONObject()
+            .put("started_at", startedAt.format(iso))
+            .put("ended_at", endedAt.format(iso))
+            .put("distance_m", Math.round(distanceM * 10) / 10.0)
+            .put("planned_route", pts(route))
+            .put("path", pts(path))
+        targetMinutes?.let { body.put("target_minutes", it) }
+        plannedDistanceM?.let { body.put("planned_distance_m", Math.round(it * 10) / 10.0) }
+        proposalId?.let { body.put("proposal_id", it.take(64)) }
+        return body
+    }
+
+    /** Sends a body from [walkBody] (also used to re-send a walk kept on the device after a failure). */
+    fun createWalk(body: JSONObject): JSONObject = JSONObject(request("POST", "/walks", body))
+
+    fun walks(limit: Int = 20): WalkHistory = WalkHistory.from(JSONObject(request("GET", "/walks?limit=$limit")))
+
+    // ---------- analysis / intervention (API-10, 12) ----------
+    /** Per-day values for the trend charts ([days] 7..60). */
+    fun trends(days: Int = 14): Trends = Trends.from(JSONObject(request("GET", "/analysis/trends?days=$days")))
+
+    fun risk(window: Int = 7): RiskAnalysis = RiskAnalysis.from(JSONObject(request("GET", "/analysis/risk?window=$window")))
+
+    /** With [includeExplanation] the backend asks the LLM server for a friendly explanation (fallback text otherwise). */
+    fun recommendation(includeExplanation: Boolean = true): Recommendation =
+        Recommendation.from(JSONObject(request("GET", "/interventions/recommendations?include_explanation=$includeExplanation")))
+
     // ---------- transport ----------
     private fun request(method: String, path: String, body: JSONObject? = null, auth: Boolean = true): String {
         val conn = try {
             URL(prefs.baseUrl + API_PREFIX + path).openConnection() as HttpURLConnection
         } catch (e: IOException) {
-            throw ApiException(0, "BAD_URL", "서버 주소를 확인해 주세요: ${prefs.baseUrl}")
+            throw ApiException(0, "BAD_URL", tr(R.string.check_server_address, prefs.baseUrl))
         }
         try {
             conn.requestMethod = method
             conn.connectTimeout = 8_000
             conn.readTimeout = 25_000 // backend waits up to LLM_TIMEOUT_SECONDS (12s) for the LLM
             conn.setRequestProperty("Accept", "application/json")
+            // The server answers user-facing text (catalog, fallback, LLM replies) in the app's language.
+            conn.setRequestProperty("Accept-Language",
+                com.cbnu.nabi.NabiApp.appContext.resources.configuration.locales[0].toLanguageTag())
             if (auth) prefs.token?.let { conn.setRequestProperty("Authorization", "Bearer $it") }
             if (body != null) {
                 conn.doOutput = true
@@ -136,7 +193,7 @@ class ApiClient(private val prefs: Prefs) {
             }
             return text
         } catch (e: IOException) {
-            throw ApiException(0, "NETWORK_ERROR", "서버에 연결할 수 없어요 (${prefs.baseUrl})")
+            throw ApiException(0, "NETWORK_ERROR", tr(R.string.can_t_reach_server, prefs.baseUrl))
         } finally {
             conn.disconnect()
         }
@@ -154,14 +211,14 @@ class ApiClient(private val prefs: Prefs) {
         } catch (_: JSONException) {
         }
         val friendly = when (code) {
-            "UNAUTHORIZED" -> if (msg?.contains("incorrect") == true) "이메일 또는 비밀번호가 맞지 않아요" else "다시 로그인해 주세요"
-            "DUPLICATE_RECORD" -> if (msg?.contains("Email") == true) "이미 가입된 이메일이에요" else "이미 기록이 있어요"
-            "VALIDATION_ERROR" -> "입력값을 확인해 주세요" + (msg?.let { " ($it)" } ?: "")
-            "RATE_LIMITED" -> "잠깐 쉬었다가 다시 말 걸어 주세요"
-            "LLM_UNAVAILABLE" -> "나비가 지금 대답하기 어려워요. 잠시 후 다시 시도해 주세요"
-            "MISSION_NOT_VERIFIED" -> "아직 미션 조건을 만족하는 기록이 없어요"
-            "MISSION_EXPIRED" -> "기한이 지난 미션이에요"
-            else -> msg ?: "요청을 처리하지 못했어요 ($status)"
+            "UNAUTHORIZED" -> if (msg?.contains("incorrect") == true) tr(R.string.wrong_email_or_password) else tr(R.string.please_log_in_again)
+            "DUPLICATE_RECORD" -> if (msg?.contains("Email") == true) tr(R.string.this_email_is_already_registered) else tr(R.string.record_already_exists)
+            "VALIDATION_ERROR" -> tr(R.string.please_check_your_input) + (msg?.let { " ($it)" } ?: "")
+            "RATE_LIMITED" -> tr(R.string.take_short_break_then_talk_to)
+            "LLM_UNAVAILABLE" -> tr(R.string.nabi_can_t_answer_right_now)
+            "MISSION_NOT_VERIFIED" -> tr(R.string.no_record_meets_mission_goal_yet)
+            "MISSION_EXPIRED" -> tr(R.string.this_mission_has_expired)
+            else -> msg ?: tr(R.string.couldn_t_process_request, status)
         }
         return ApiException(status, code, friendly)
     }

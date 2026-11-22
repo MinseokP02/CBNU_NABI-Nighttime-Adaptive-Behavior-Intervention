@@ -1,5 +1,8 @@
 package com.cbnu.nabi.ui
 
+
+import com.cbnu.nabi.R
+import com.cbnu.nabi.tr
 import android.app.Activity
 import android.app.Dialog
 import android.graphics.Color
@@ -93,8 +96,8 @@ object Modals {
         box.addView(activity.label(text, 12.5f, Palette.muted).apply {
             gravity = Gravity.CENTER; setPadding(0, activity.dp(8), 0, 0); setLineSpacing(activity.dp(3).toFloat(), 1f)
         })
-        val row = if (action == null) buttons(activity, null, {}, "확인") { dialog.dismiss() }
-        else buttons(activity, "닫기", { dialog.dismiss() }, action.first) { dialog.dismiss(); action.second() }
+        val row = if (action == null) buttons(activity, null, {}, tr(R.string.ok)) { dialog.dismiss() }
+        else buttons(activity, tr(R.string.close), { dialog.dismiss() }, action.first) { dialog.dismiss(); action.second() }
         box.addView(row, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
             .apply { topMargin = activity.dp(18) })
         show(activity, dialog, box)
@@ -113,7 +116,7 @@ object Modals {
         head.addView(preview)
         box.addView(head)
 
-        val period = wheel(activity, 0, 1) { if (it == 0) "오전" else "오후" }.apply { value = if (initial.hour >= 12) 1 else 0 }
+        val period = wheel(activity, 0, 1) { if (it == 0) tr(R.string.am) else tr(R.string.pm) }.apply { value = if (initial.hour >= 12) 1 else 0 }
         val hour = wheel(activity, 1, 12) { it.toString() }.apply { value = (initial.hour % 12).let { if (it == 0) 12 else it } }
         val minute = wheel(activity, 0, 59) { "%02d".format(it) }.apply { value = initial.minute }
         fun current(): LocalTime = LocalTime.of((hour.value % 12) + if (period.value == 1) 12 else 0, minute.value)
@@ -122,7 +125,7 @@ object Modals {
         preview.text = format12(current())
 
         val wheels = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL }
-        for ((label, picker) in listOf("구분" to period, "시" to hour, "분" to minute)) {
+        for ((label, picker) in listOf(tr(R.string.am_pm) to period, tr(R.string.hour) to hour, tr(R.string.min) to minute)) {
             val col = LinearLayout(activity).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER_HORIZONTAL
@@ -134,12 +137,12 @@ object Modals {
                 setPadding(activity.dp(6), activity.dp(12), activity.dp(6), activity.dp(8))
             }
             wheels.addView(col, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
-                if (label != "구분") leftMargin = activity.dp(8)
+                if (label != tr(R.string.am_pm)) leftMargin = activity.dp(8)
             })
         }
         box.addView(wheels, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
             .apply { topMargin = activity.dp(16) })
-        box.addView(buttons(activity, "취소", { dialog.dismiss() }, "확인") { onConfirm(current()); dialog.dismiss() },
+        box.addView(buttons(activity, tr(R.string.cancel), { dialog.dismiss() }, tr(R.string.ok)) { onConfirm(current()); dialog.dismiss() },
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
                 .apply { topMargin = activity.dp(14) })
         show(activity, dialog, box, extraBehind)
@@ -155,8 +158,9 @@ object Modals {
 
     /** "오후 11:30" */
     fun format12(t: LocalTime): String {
-        val period = if (t.hour >= 12) "오후" else "오전"
+        val period = if (t.hour >= 12) tr(R.string.pm) else tr(R.string.am)
         val h = (t.hour % 12).let { if (it == 0) 12 else it }
-        return "$period $h:%02d".format(t.minute)
+        // Korean puts 오전/오후 first ("오후 7:05"); English puts AM/PM last ("7:05 PM").
+        return if (java.util.Locale.getDefault().language == "ko") "$period $h:%02d".format(t.minute) else "$h:%02d $period".format(t.minute)
     }
 }

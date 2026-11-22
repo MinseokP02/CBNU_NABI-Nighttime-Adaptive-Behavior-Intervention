@@ -1,5 +1,7 @@
 package com.cbnu.nabi.ui
 
+
+import com.cbnu.nabi.tr
 import android.app.Activity
 import android.content.Context
 import android.content.res.ColorStateList
@@ -30,7 +32,7 @@ fun <T> Activity.bg(work: () -> T, done: (Result<T>) -> Unit) {
 }
 
 fun Throwable.friendly(): String =
-    if (this is ApiException) message ?: code else "문제가 생겼어요 (${javaClass.simpleName})"
+    if (this is ApiException) message ?: code else tr(R.string.something_went_wrong, javaClass.simpleName)
 
 fun Activity.dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
 

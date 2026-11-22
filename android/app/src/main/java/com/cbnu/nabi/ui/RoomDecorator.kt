@@ -1,5 +1,7 @@
 package com.cbnu.nabi.ui
 
+
+import com.cbnu.nabi.tr
 import android.annotation.SuppressLint
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
@@ -61,16 +63,16 @@ class RoomDecorator(
         setPadding(activity.dp(4), activity.dp(4), activity.dp(4), activity.dp(4))
         background = activity.cardBg(Color.argb(240, 255, 250, 246), 999, Color.argb(200, 185, 155, 137))
         elevation = activity.dp(4).toFloat()
-        addView(roundButton(R.drawable.ic_minus, "작게") { resizeBy(0.9f) })
+        addView(roundButton(R.drawable.ic_minus, tr(R.string.smaller)) { resizeBy(0.9f) })
         addView(nameText, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
             .apply { leftMargin = activity.dp(8); rightMargin = activity.dp(8) })
-        addView(roundButton(R.drawable.ic_plus, "크게") { resizeBy(1.1f) })
+        addView(roundButton(R.drawable.ic_plus, tr(R.string.bigger)) { resizeBy(1.1f) })
         // "보관": take this piece out of the room (back to 내 아이템 › 보관 중)
-        addView(activity.label("보관", 11f, Palette.lavenderDeep, bold = true).apply {
+        addView(activity.label(tr(R.string.store), 11f, Palette.lavenderDeep, bold = true).apply {
             gravity = Gravity.CENTER
             setPadding(activity.dp(12), 0, activity.dp(12), 0)
             background = activity.cardBg(Color.WHITE, 999, Color.parseColor("#C9B5E6"))
-            contentDescription = "이 가구 보관하기"
+            contentDescription = tr(R.string.store_this_furniture)
             setOnClickListener { storeSelected() }
         }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, activity.dp(34)).apply { leftMargin = activity.dp(6) })
         visibility = View.GONE
@@ -103,19 +105,19 @@ class RoomDecorator(
         elevation = activity.dp(4).toFloat()
         val row = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         row.addView(activity.icon(R.drawable.ic_sparkle, Palette.lavender, 20))
-        row.addView(activity.label("방 꾸미기", 18f, title = true),
+        row.addView(activity.label(tr(R.string.decorate_room), 18f, title = true),
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { leftMargin = activity.dp(7) })
         addView(row)
-        addView(activity.label("가구를 눌러서 옮겨 보세요.\n두 손가락이나 − / + 로 크기를 바꾸고, 보관하면 내 아이템으로 돌아가요.", 11.5f, Palette.muted).apply {
+        addView(activity.label(tr(R.string.tap_furniture_to_move_it_use), 11.5f, Palette.muted).apply {
             setPadding(0, activity.dp(6), 0, 0); setLineSpacing(activity.dp(2).toFloat(), 1f)
         })
     }
 
     private fun bottomBar() = LinearLayout(activity).apply {
         orientation = LinearLayout.HORIZONTAL
-        addView(Modals.button(activity, "처음 배치로", false) { reset() }.apply { elevation = activity.dp(3).toFloat() },
+        addView(Modals.button(activity, tr(R.string.reset_layout), false) { reset() }.apply { elevation = activity.dp(3).toFloat() },
             LinearLayout.LayoutParams(0, activity.dp(48), 1f))
-        addView(Modals.button(activity, "완료", true) { finish(true) }.apply { elevation = activity.dp(3).toFloat() },
+        addView(Modals.button(activity, tr(R.string.done), true) { finish(true) }.apply { elevation = activity.dp(3).toFloat() },
             LinearLayout.LayoutParams(0, activity.dp(48), 1.4f).apply { leftMargin = activity.dp(10) })
     }
 
@@ -149,7 +151,7 @@ class RoomDecorator(
         // "picked up": a little pop with an overshoot, like lifting it off the floor
         v.animate().scaleX(1.06f).scaleY(1.06f).translationY(-activity.dp(6).toFloat())
             .setInterpolator(OvershootInterpolator(3f)).setDuration(220).start()
-        nameText.text = when (slot) { Slot.RUG -> "카펫"; Slot.TOWER -> "캣타워"; Slot.PLANT -> "화분" }
+        nameText.text = when (slot) { Slot.RUG -> tr(R.string.rug); Slot.TOWER -> tr(R.string.cat_tower); Slot.PLANT -> tr(R.string.plant) }
         shadow.visibility = View.VISIBLE
         bubble.visibility = View.VISIBLE
         follow()

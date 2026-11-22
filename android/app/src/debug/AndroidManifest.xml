@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Debug builds only: lets HealthSeedReceiver write sample records into Health Connect for testing. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.health.WRITE_SLEEP" />
+    <uses-permission android:name="android.permission.health.WRITE_EXERCISE" />
+
+    <application>
+        <receiver
+            android:name="com.cbnu.nabi.debug.HealthSeedReceiver"
+            android:exported="true" />
+        <receiver
+            android:name="com.cbnu.nabi.debug.SuggestWalkReceiver"
+            android:exported="true" />
+    </application>
+</manifest>

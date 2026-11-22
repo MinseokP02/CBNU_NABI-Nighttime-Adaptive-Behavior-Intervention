@@ -153,3 +153,18 @@ def test_remote_http_error_falls_back(client, settings, monkeypatch):
 
     monkeypatch.setattr(httpx.AsyncClient, "post", error)
     assert client.post("/internal/v1/llm/generate", json=generate_body(), headers=TOKEN).json()["source"] == "fallback"
+
+
+def test_english_replies(client):
+    body = generate_body("I couldn't sleep again last night") | {"language": "en"}
+    reply = client.post("/internal/v1/llm/generate", json=body, headers=TOKEN).json()
+    assert reply["intent"] == "SLEEP_COMPLAINT" and reply["response"].startswith("Sleep must have been")
+    crisis = client.post("/internal/v1/llm/generate", json=generate_body("I want to kill myself") | {"language": "en"}, headers=TOKEN).json()
+    assert crisis["safety_status"] == "CRISIS" and "109" in crisis["response"] and "Thank you" in crisis["response"]
+    mission = client.post("/internal/v1/llm/mission", headers=TOKEN, json={
+        "request_id": "req_en_m", "phase": "COMPLETE", "language": "en",
+        "mission": {"title": "Light exercise 20 min", "description": "Walk or stretch for 20 minutes."}, "reward_exp": 20,
+    }).json()
+    assert mission["message"].startswith("'Light exercise 20 min' mission complete!")
+    bad = client.post("/internal/v1/llm/generate", json=generate_body() | {"language": "fr"}, headers=TOKEN)
+    assert bad.status_code == 422

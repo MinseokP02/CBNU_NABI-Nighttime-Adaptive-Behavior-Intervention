@@ -41,9 +41,13 @@ Swagger UI: <http://127.0.0.1:8000/docs>
 | API-06 | GET | `/sleep-records` | `start_date`, `end_date`, `limit` |
 | API-07 | POST | `/behavior-records` | 201 |
 | API-08 | GET | `/behavior-records` | `start_date`, `end_date`, `limit` |
+| 산책 | POST | `/walks` | 201. 끝난 산책 (시작·종료 시각, 거리, 추천 경로·실제 경로 `[lat, lon]` 최대 2000점) |
+| 산책 | GET | `/walks` | 목록(좌표 제외) + 합계. `start_date`, `end_date`(사용자 시간대 기준), `limit` |
+| 산책 | GET / DELETE | `/walks/{walk_id}` | 상세(좌표 포함) / 삭제. 본인 것만 (다른 사람 것은 404) |
 | API-09 | GET | `/analysis/baseline` | `ready` / `collecting` |
 | API-10 | GET | `/analysis/risk?window=3\|7` | 그 외 값은 422 |
 | API-11 | POST | `/analysis/refresh` | baseline + 3·7일 위험도 저장 |
+| API—11 | GET | `/analysis/trends?days=14` | 지표별 일자 값 + 개인 기준선 평소 범위 (7~60일, 추이 그래프용) |
 | API-12 | GET | `/interventions/recommendations` | `include_explanation=true`면 LLM-04 설명 포함 |
 | API-13 | GET | `/missions/active` | 활성 미션이 없으면 추천 중재의 미션 발급 |
 | API-14 | POST | `/missions/{mission_id}/complete` | 검증·보상·LLM-05 완료 메시지 |
@@ -52,6 +56,8 @@ Swagger UI: <http://127.0.0.1:8000/docs>
 | API-17 | GET | `/cat/state` | 고양이 행동 태그 |
 | API-18 | GET | `/reports/weekly` | `end_date` (기본: 사용자 시간대 오늘) |
 | API-19 | GET | `/health` | DB·LLM 상태 포함. 컨테이너용 `/health`, `/ready`도 유지 |
+
+
 
 `GET /rewards/history`는 기존 보상 이력 API로 유지합니다.
 
@@ -185,3 +191,7 @@ docker compose run --rm --no-deps backend ruff check --no-cache app tests
 | 미션 완료 규칙 | 24시간 안에 작성된 기록으로 검증 | `mission_service.py` |
 | LLM 모델·방식 | Qwen2.5-7B-Instruct(vLLM) 또는 외부 OpenAI 호환 API, 기본은 mock | `llm-server` |
 | 대화 보존 기간·개인정보·위기 대응 절차 | 미확정. 대화는 삭제 정책 없이 저장되고, 위기 시 109·1577-0199·119를 안내 | 결정 후 별도 migration/API |
+
+## 응답 언어
+
+`Accept-Language`가 `en`으로 시작하면 사용자에게 보이는 문장(중재 추천 제목·메시지, 미션 제목·설명, 미션 완료·채팅 대체 응답, 위기 안내)을 영어로 돌려주고, LLM 서버에도 `language: "en"`을 넘깁니다. 그 외는 한국어입니다. 카탈로그는 한국어로 시드되고 영어는 `app/core/i18n.py`에 코드/미션 제목 기준으로 있습니다 — 카탈로그에 항목을 추가하면 여기에도 추가하세요 (`tests/test_i18n.py`가 누락을 잡습니다).

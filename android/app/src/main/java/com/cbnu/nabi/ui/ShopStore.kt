@@ -1,5 +1,7 @@
 package com.cbnu.nabi.ui
 
+
+import com.cbnu.nabi.tr
 import android.content.Context
 import com.cbnu.nabi.R
 
@@ -15,23 +17,29 @@ object ShopStore {
     private const val K_EQUIP = "equip_"
     const val DEMO_START_COINS = 300
 
-    enum class Category(val label: String) { INTERIOR("인테리어"), TOY("장난감"), SNACK("간식") }
+    enum class Category(private val labelRes: Int) {
+        INTERIOR(R.string.interior), TOY(R.string.toys), SNACK(R.string.snacks);
+
+        val label: String get() = tr(labelRes)
+    }
 
     /** Where an interior item goes in the home room (one item per slot). */
     enum class Slot { RUG, TOWER, PLANT }
 
-    data class Product(val id: String, val name: String, val category: Category, val price: Int, val image: Int, val slot: Slot? = null)
+    data class Product(val id: String, private val nameRes: Int, val category: Category, val price: Int, val image: Int, val slot: Slot? = null) {
+        val name: String get() = tr(nameRes)
+    }
 
     const val DEFAULT_RUG = "default-ivory-rug"
-    val defaultRug = Product(DEFAULT_RUG, "기본 아이보리 카펫", Category.INTERIOR, 0, R.drawable.rug_ivory, Slot.RUG)
+    val defaultRug = Product(DEFAULT_RUG, R.string.basic_ivory_rug, Category.INTERIOR, 0, R.drawable.rug_ivory, Slot.RUG)
 
     /** Same catalog as the Figma design. */
     val products = listOf(
-        Product("lavender-rug", "라벤더 카펫", Category.INTERIOR, 80, R.drawable.shop_lavender_rug, Slot.RUG),
-        Product("wood-cat-tower", "원목 캣타워", Category.INTERIOR, 150, R.drawable.shop_wood_cat_tower, Slot.TOWER),
-        Product("green-plant", "초록 화분", Category.INTERIOR, 60, R.drawable.shop_green_plant, Slot.PLANT),
-        Product("feather-wand", "깃털 낚싯대", Category.TOY, 50, R.drawable.shop_feather_wand),
-        Product("tuna-treat", "참치 츄르", Category.SNACK, 30, R.drawable.shop_tuna_treat),
+        Product("lavender-rug", R.string.lavender_rug, Category.INTERIOR, 80, R.drawable.shop_lavender_rug, Slot.RUG),
+        Product("wood-cat-tower", R.string.wooden_cat_tower, Category.INTERIOR, 150, R.drawable.shop_wood_cat_tower, Slot.TOWER),
+        Product("green-plant", R.string.green_plant, Category.INTERIOR, 60, R.drawable.shop_green_plant, Slot.PLANT),
+        Product("feather-wand", R.string.feather_wand, Category.TOY, 50, R.drawable.shop_feather_wand),
+        Product("tuna-treat", R.string.tuna_treat, Category.SNACK, 30, R.drawable.shop_tuna_treat),
     )
 
     fun find(id: String): Product? = if (id == DEFAULT_RUG) defaultRug else products.firstOrNull { it.id == id }

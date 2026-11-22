@@ -1,5 +1,8 @@
 package com.cbnu.nabi.data
 
+
+import com.cbnu.nabi.R
+import com.cbnu.nabi.tr
 import android.content.Context
 import com.cbnu.nabi.BuildConfig
 import com.cbnu.nabi.alarm.NabiAlarms
@@ -14,9 +17,8 @@ class Prefs(context: Context) {
     private val app = context.applicationContext
     private val sp = app.getSharedPreferences(NAME, Context.MODE_PRIVATE)
 
-    var baseUrl: String
-        get() = sp.getString(K_URL, null) ?: BuildConfig.DEFAULT_BASE_URL
-        set(v) = sp.edit().putString(K_URL, v.trim().trimEnd('/')).apply()
+    /** Fixed per build type (app/build.gradle.kts DEFAULT_BASE_URL); users never set it. */
+    val baseUrl: String get() = BuildConfig.DEFAULT_BASE_URL
 
     var token: String?
         get() = sp.getString(K_TOKEN, null)
@@ -32,7 +34,7 @@ class Prefs(context: Context) {
         set(v) = sp.edit().putString(K_CONV, v).apply()
 
     var catName: String
-        get() = sp.getString(K_CAT_NAME, null) ?: "나비"
+        get() = sp.getString(K_CAT_NAME, null) ?: tr(R.string.nabi)
         set(v) = sp.edit().putString(K_CAT_NAME, v).apply()
 
     var haptics: Boolean
@@ -54,7 +56,6 @@ class Prefs(context: Context) {
 
     companion object {
         const val NAME = "nabi"
-        private const val K_URL = "base_url"
         private const val K_TOKEN = "access_token"
         private const val K_EMAIL = "email"
         private const val K_CONV = "conversation_id"

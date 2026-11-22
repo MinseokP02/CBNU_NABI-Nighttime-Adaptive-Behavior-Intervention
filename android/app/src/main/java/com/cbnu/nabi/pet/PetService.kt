@@ -1,5 +1,7 @@
 package com.cbnu.nabi.pet
 
+
+import com.cbnu.nabi.tr
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -32,6 +34,11 @@ import com.cbnu.nabi.data.CatState
 import com.cbnu.nabi.data.Prefs
 import com.cbnu.nabi.ui.ChatActivity
 import com.cbnu.nabi.ui.MainActivity
+import com.cbnu.nabi.ui.MissionProposal
+import com.cbnu.nabi.ui.MissionProposalStore
+import com.cbnu.nabi.ui.MissionProposals
+import com.cbnu.nabi.ui.ProposalKind
+import com.cbnu.nabi.ui.ProposalResponse
 import java.util.concurrent.Executors
 
 /** What the cat needs from whoever hosts its windows. */
@@ -60,6 +67,11 @@ class PetService : Service(), PetHost {
         const val ACTION_STOP = "com.cbnu.nabi.STOP"
         const val ACTION_CAT = "com.cbnu.nabi.CAT"
         const val ACTION_SYNC = "com.cbnu.nabi.SYNC"
+        const val ACTION_SUGGEST_WALK = "com.cbnu.nabi.SUGGEST_WALK"
+        /** Server recommendation check for a walk: at most this often, only in [WALK_HOURS], once a day. */
+        private const val WALK_CHECK_MS = 30 * 60 * 1000L
+        private val WALK_HOURS = 10..19
+        private const val WALK_CODE = "SH_DAYTIME_ACTIVITY"
         const val EXTRA_ACTION = "cat_action"
         const val EXTRA_LINE = "line"
         private const val CHANNEL = "nabi_pet"
@@ -83,6 +95,15 @@ class PetService : Service(), PetHost {
                     .putExtra(EXTRA_ACTION, action.name)
                     .putExtra(EXTRA_LINE, line)
             )
+        }
+
+        /**
+         * 나비 suggests a walk OVER OTHER APPS (card next to the cat). Accepting opens NABI → 산책 page.
+         * No-op while the overlay cat is hidden.
+         */
+        fun suggestWalk(context: Context) {
+            if (!isRunning) return
+            context.startService(Intent(context, PetService::class.java).setAction(ACTION_SUGGEST_WALK))
         }
 
         /** Re-read /cat/state now (e.g. after login or finishing a mission). */
@@ -133,8 +154,56 @@ class PetService : Service(), PetHost {
     private val poll = object : Runnable {
         override fun run() {
             syncCatState()
+            maybeSuggestWalkFromServer()
             main.postDelayed(this, POLL_MS)
         }
+    }
+
+    // ---- walk suggestion (over other apps) ----
+    private var walkCard: WalkSuggestionCard? = null
+    private var lastWalkCheck = 0L
+    private val walkPrefs by lazy { getSharedPreferences("nabi_walk_suggest", Context.MODE_PRIVATE) }
+
+    private fun suggestedToday() = walkPrefs.getString("day", null) == java.time.LocalDate.now().toString()
+
+    /** Real-time trigger: the server's current recommendation is the daytime-activity one (→ 산책). */
+    private fun maybeSuggestWalkFromServer() {
+        val now = System.currentTimeMillis()
+        if (!prefs.loggedIn || suggestedToday() || now - lastWalkCheck < WALK_CHECK_MS) return
+        if (java.time.LocalTime.now().hour !in WALK_HOURS || hiddenInApp) return
+        lastWalkCheck = now
+        io.execute {
+            val rec = runCatching { api.recommendation(includeExplanation = false) }.getOrNull() ?: return@execute
+            if (rec.code != WALK_CODE) return@execute
+            main.post { showWalkSuggestion(MissionProposals.fromRecommendation(rec)) }
+        }
+    }
+
+    private fun localWalkProposal() = MissionProposal(
+        id = "overlay-walk-${java.time.LocalDate.now()}", kind = ProposalKind.WALK,
+        title = tr(R.string.want_to_go_for_walk_with),
+        description = tr(R.string.you_ve_been_on_your_screen),
+    )
+
+    private fun showWalkSuggestion(p: MissionProposal = localWalkProposal()) {
+        if (walkCard?.isShowing == true || !prefs.loggedIn) return
+        walkPrefs.edit().putString("day", java.time.LocalDate.now().toString()).apply()
+        cat?.applyAction(CatAction.WALK, tr(R.string.walk_time_meow))
+        val store = MissionProposalStore(this, prefs.email)
+        walkCard = WalkSuggestionCard(this, wm, p.title, p.description,
+            onAccept = {
+                store.record(p, ProposalResponse.ACCEPTED) // 나의 미션: 진행 중
+                cat?.applyAction(CatAction.HAPPY, tr(R.string.yay_let_s_go_meow))
+                // Into the NABI app first, which then opens the 산책 page (back returns to the app).
+                startActivity(Intent(this, MainActivity::class.java)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                    .putExtra(MainActivity.EXTRA_OPEN_WALK, p.id))
+            },
+            onLater = {
+                store.record(p, ProposalResponse.LATER)
+                cat?.applyAction(CatAction.SIT, tr(R.string.okay_let_s_go_later_meow))
+            },
+        ).also { it.show() }
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -168,6 +237,7 @@ class PetService : Service(), PetHost {
                 cat?.applyAction(a, intent.getStringExtra(EXTRA_LINE))
             }
             ACTION_SYNC -> { lastServerAction = null; syncCatState() }
+            ACTION_SUGGEST_WALK -> showWalkSuggestion()
             else -> cat?.callOver()
         }
         return START_STICKY
@@ -183,6 +253,7 @@ class PetService : Service(), PetHost {
         if (instance === this) instance = null
         main.removeCallbacksAndMessages(null)
         io.shutdownNow()
+        walkCard?.dismiss()
         cat?.let { runCatching { wm.removeView(it) } }
         touch?.let { runCatching { wm.removeView(it) } }
         cat = null; touch = null
@@ -209,9 +280,9 @@ class PetService : Service(), PetHost {
         if (s.action == lastServerAction) return
         lastServerAction = s.action
         val line = when (s.reason) {
-            "MISSION_COMPLETED" -> "미션 해냈다냥! 최고야"
-            "SLEEP_RISK" -> "요즘 잠이 힘들지? 옆에 있을게"
-            "NIGHT_TIME" -> "이제 잘 시간이다냥… 하암"
+            "MISSION_COMPLETED" -> tr(R.string.mission_done_meow_you_re_best)
+            "SLEEP_RISK" -> tr(R.string.sleep_s_been_hard_lately_i)
+            "NIGHT_TIME" -> tr(R.string.time_for_bed_meow_yawn)
             else -> null
         }
         view.applyAction(s.action, line)
@@ -310,8 +381,8 @@ class PetService : Service(), PetHost {
     private fun startAsForeground() {
         val nm = getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(
-            NotificationChannel(CHANNEL, "나비", NotificationManager.IMPORTANCE_LOW).apply {
-                description = "나비가 화면에 있는 동안 표시돼요"
+            NotificationChannel(CHANNEL, tr(R.string.nabi), NotificationManager.IMPORTANCE_LOW).apply {
+                description = tr(R.string.shown_while_nabi_is_on_your)
                 setShowBadge(false)
             }
         )
@@ -327,12 +398,12 @@ class PetService : Service(), PetHost {
         val icon = Icon.createWithResource(this, R.drawable.ic_cat)
         val n = Notification.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_cat)
-            .setContentTitle("나비가 화면에 있어요")
-            .setContentText("나비를 꾹 누르면 대화할 수 있어요")
+            .setContentTitle(tr(R.string.nabi_is_on_your_screen))
+            .setContentText(tr(R.string.long_press_nabi_to_chat))
             .setContentIntent(open)
             .setOngoing(true)
-            .addAction(Notification.Action.Builder(icon, "대화하기", chat).build())
-            .addAction(Notification.Action.Builder(icon, "숨기기", stop).build())
+            .addAction(Notification.Action.Builder(icon, tr(R.string.chat), chat).build())
+            .addAction(Notification.Action.Builder(icon, tr(R.string.hide), stop).build())
             .build()
         if (Build.VERSION.SDK_INT >= 34)
             startForeground(NOTIF_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)

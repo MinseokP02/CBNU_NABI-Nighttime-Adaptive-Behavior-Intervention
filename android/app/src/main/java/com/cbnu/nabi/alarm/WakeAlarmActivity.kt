@@ -1,5 +1,7 @@
 package com.cbnu.nabi.alarm
 
+
+import com.cbnu.nabi.tr
 import android.app.Activity
 import android.app.KeyguardManager
 import android.app.NotificationManager
@@ -86,15 +88,15 @@ class WakeAlarmActivity : Activity() {
         setPadding(dp(32), dp(32), dp(32), dp(32))
 
         addView(icon(R.drawable.ic_cat, Palette.cat, 120))
-        addView(label(LocalTime.now().format(DateTimeFormatter.ofPattern("a h:mm", Locale.KOREAN)), 44f, title = true).apply {
+        addView(label(com.cbnu.nabi.ui.Modals.format12(LocalTime.now()), 44f, title = true).apply {
             gravity = Gravity.CENTER; setPadding(0, dp(24), 0, 0)
         })
-        addView(label("일어날 시간이에요!", 22f, title = true).apply { gravity = Gravity.CENTER; setPadding(0, dp(12), 0, 0) })
-        addView(label("나비가 깨우러 왔어요. 커튼을 열고 햇빛을 받아 보세요.", 14f, Palette.muted).apply {
+        addView(label(tr(R.string.time_to_wake_up_2), 22f, title = true).apply { gravity = Gravity.CENTER; setPadding(0, dp(12), 0, 0) })
+        addView(label(tr(R.string.nabi_came_to_wake_you_up_2), 14f, Palette.muted).apply {
             gravity = Gravity.CENTER; setPadding(0, dp(8), 0, dp(40))
         })
-        addView(button("일어났어요", Palette.lavender, Color.WHITE) { stop(snooze = false) }, fullWidth())
-        addView(button("${NabiAlarms.SNOOZE_MIN}분 더", Palette.lavenderSoft, Palette.lavenderDeep) { stop(snooze = true) },
+        addView(button(tr(R.string.i_m_up), Palette.lavender, Color.WHITE) { stop(snooze = false) }, fullWidth())
+        addView(button(tr(R.string.more_min, NabiAlarms.SNOOZE_MIN), Palette.lavenderSoft, Palette.lavenderDeep) { stop(snooze = true) },
             fullWidth().apply { topMargin = dp(12) })
     }
 
